@@ -215,7 +215,8 @@ function readManualFields(): Record<string, string> {
   return values;
 }
 
-function setManualFields(listing: MarketplaceListingInput): void {
+/** `importedFields` are the fields that had a TSV column, so only they can get the default-code reminder. */
+function setManualFields(listing: MarketplaceListingInput, importedFields: readonly string[] = []): void {
   const record = listing as unknown as Record<string, unknown>;
   manualFields?.querySelectorAll<HTMLElement>('[data-manual-field]').forEach((element) => {
     const field = element.dataset.manualField;
@@ -224,7 +225,7 @@ function setManualFields(listing: MarketplaceListingInput): void {
     const text = Array.isArray(value) ? value.join(field === 'tags' ? ', ' : '\n')
       : typeof value === 'string' ? value
         : typeof value === 'number' ? String(value) : '';
-    if (element.dataset.codeField) writeCodeField(element, text);
+    if (element.dataset.codeField) writeCodeField(element, text, importedFields.includes(field));
     else (element as HTMLInputElement | HTMLTextAreaElement).value = text;
   });
 }
@@ -260,8 +261,10 @@ async function parsePastedTsv(): Promise<void> {
   try {
     const row = parseTsvRow(tsvRowInput.value);
     const settings = await sendMessage<{ tsvColumnMapping: typeof DEFAULT_TSV_COLUMN_MAPPING }>({ type: 'GET_SETTINGS' });
-    const listing = mapTsvRow(row, manualMarketplace.value as Marketplace, settings.tsvColumnMapping ?? DEFAULT_TSV_COLUMN_MAPPING);
-    setManualFields(listing);
+    const marketplace = manualMarketplace.value as Marketplace;
+    const mapping = settings.tsvColumnMapping ?? DEFAULT_TSV_COLUMN_MAPPING;
+    const listing = mapTsvRow(row, marketplace, mapping);
+    setManualFields(listing, mapping[marketplace]);
     status.textContent = 'Đã điền các trường từ hàng TSV. Kiểm tra nội dung rồi bấm Check listing nhập tay.';
   } catch (error) {
     status.textContent = error instanceof Error ? error.message : 'Không thể đọc hàng TSV.';
