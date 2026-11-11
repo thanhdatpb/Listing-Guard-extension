@@ -2,11 +2,12 @@ import type { ListingField, MarketplaceAdapter } from '../adapters/marketplace-a
 
 export type MarketplaceContentMessage =
   | { type: 'READ_LISTING' }
-  | { type: 'LOCATE_FINDING'; field: ListingField; index: number };
+  | { type: 'LOCATE_FINDING'; field: ListingField; index: number }
+  | { type: 'FILL_SUGGESTION'; field: ListingField; index: number; value: string; expectedValue: string };
 
 export type MarketplaceContentResponse =
-  | { ok: true; listing?: ReturnType<MarketplaceAdapter['readListing']>; located?: boolean }
-  | { ok: false; code: 'ADAPTER_UNAVAILABLE' | 'LISTING_NOT_FOUND' | 'INVALID_MESSAGE' };
+  | { ok: true; listing?: ReturnType<MarketplaceAdapter['readListing']>; fieldSnapshots?: Record<string, string>; located?: boolean; filled?: boolean }
+  | { ok: false; code: 'ADAPTER_UNAVAILABLE' | 'LISTING_NOT_FOUND' | 'FIELD_CHANGED' | 'FIELD_NOT_FOUND' | 'INVALID_MESSAGE' };
 
 export interface RuntimeMessageSource {
   addListener(listener: (
@@ -18,14 +19,14 @@ export interface RuntimeMessageSource {
 
 function isMessage(value: unknown): value is MarketplaceContentMessage {
   if (typeof value !== 'object' || value === null || !('type' in value)) return false;
-  const message = value as { type: unknown; field?: unknown; index?: unknown };
+  const message = value as { type: unknown; field?: unknown; index?: unknown; value?: unknown; expectedValue?: unknown };
   if (message.type === 'READ_LISTING') return true;
   const validField = ['title', 'description', 'tags', 'price', 'quantity', 'personalization'].includes(String(message.field));
-  return message.type === 'LOCATE_FINDING'
-    && validField
-    && typeof message.index === 'number'
-    && Number.isInteger(message.index)
-    && message.index >= 0;
+  if (!validField || typeof message.index !== 'number' || !Number.isInteger(message.index) || message.index < 0) return false;
+  if (message.type === 'LOCATE_FINDING') return true;
+  return message.type === 'FILL_SUGGESTION'
+    && typeof message.value === 'string'
+    && typeof message.expectedValue === 'string';
 }
 
 export function installMarketplaceBridge(
@@ -40,17 +41,50 @@ export function installMarketplaceBridge(
       sendResponse({ ok: false, code: 'ADAPTER_UNAVAILABLE' });
       return false;
     }
+    if (!adapter.detectPage()) {
+      sendResponse({ ok: false, code: 'LISTING_NOT_FOUND' });
+      return false;
+    }
     if (message.type === 'READ_LISTING') {
-      if (!adapter.detectPage()) {
+      const listing = adapter.readListing();
+      if (!listing) {
         sendResponse({ ok: false, code: 'LISTING_NOT_FOUND' });
         return false;
       }
-      const listing = adapter.readListing();
-      sendResponse(listing ? { ok: true, listing } : { ok: false, code: 'LISTING_NOT_FOUND' });
+      const fieldSnapshots: Record<string, string> = {};
+      for (const field of ['title', 'description', 'price', 'quantity'] as const) {
+        const value = adapter.readFieldValue(field, 0);
+        if (value !== undefined) fieldSnapshots[field] = value;
+      }
+      for (let index = 0; index < (listing.tags?.length ?? 0); index += 1) {
+        const value = adapter.readFieldValue('tags', index);
+        if (value !== undefined) fieldSnapshots['tags[' + index + ']'] = value;
+      }
+      for (let index = 0; index < (listing.personalization?.questions.length ?? 0); index += 1) {
+        const value = adapter.readFieldValue('personalization', index);
+        if (value !== undefined) fieldSnapshots['personalization[' + index + ']'] = value;
+      }
+      sendResponse({ ok: true, listing, fieldSnapshots });
       return false;
     }
-    const located = adapter.locate(message.field, message.index) !== null;
-    sendResponse({ ok: true, located });
+    if (message.type === 'LOCATE_FINDING') {
+      const located = adapter.locate(message.field, message.index) !== null;
+      sendResponse({ ok: true, located });
+      return false;
+    }
+
+    const listing = adapter.readListing();
+    if (!listing) {
+      sendResponse({ ok: false, code: 'LISTING_NOT_FOUND' });
+      return false;
+    }
+    const currentValue = adapter.readFieldValue(message.field, message.index) ?? '';
+    if (currentValue !== message.expectedValue) {
+      sendResponse({ ok: false, code: 'FIELD_CHANGED' });
+      return false;
+    }
+    const filled = adapter.fill(message.field, message.index, message.value);
+    sendResponse(filled ? { ok: true, filled: true } : { ok: false, code: 'FIELD_NOT_FOUND' });
     return false;
   });
 }
