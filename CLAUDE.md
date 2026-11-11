@@ -2,8 +2,10 @@
 
 ## Scope and safety
 
-- Build a Chrome Manifest V3 thin client of the Listing Guard API. MVP supports only the user's Etsy listing-editor page.
+- Build a Chrome Manifest V3 thin client of the Listing Guard API. Support the user's Etsy listing-editor page and manual Etsy/Amazon listing input in the Side Panel.
 - Read the listing only to check it. Never edit, save or publish automatically; do not add SEO or bulk scraping.
+- Never persist listing text. Manual TSV import may persist only field names and column order in `chrome.storage.local`.
+- In manual mode, do not locate or fill marketplace fields. Copy proposed values through the Side Panel clipboard control.
 - All API requests go through the extension service worker. Store the API key and base URL only in
   `chrome.storage.local`, never in sync storage, page DOM, logs or error text. Send Cloudflare Access headers only when
   the user configured them.

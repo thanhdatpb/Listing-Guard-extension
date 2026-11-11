@@ -5,7 +5,7 @@ import type {
   TrademarkCheckResult,
 } from '../shared/api-types';
 
-import type { EtsyListingInput } from '../adapters/marketplace-adapter';
+import type { EtsyListingInput, MarketplaceListingInput } from '../adapters/marketplace-adapter';
 
 import type { ListingField } from '../adapters/marketplace-adapter';
 
@@ -61,20 +61,39 @@ export interface LimitCounter {
   sourceStatus: string;
 }
 
-export function buildLimitCounters(listing: EtsyListingInput, limits: readonly LimitView[]): LimitCounter[] {
+export function buildLimitCounters(listing: MarketplaceListingInput, limits: readonly LimitView[]): LimitCounter[] {
   const counters: LimitCounter[] = [];
+  const fields = listing as unknown as Record<string, unknown>;
   for (const limit of limits) {
     if (!limit.enabled || !Number.isFinite(limit.value)) continue;
-    if (limit.kind === 'MAX_LENGTH' && (limit.field === 'title' || limit.field === 'description')) {
-      const value = listing[limit.field];
-      if (typeof value !== 'string') continue;
+    const indexed = /^(tags|bullet_points)\[(\d+)\]$/u.exec(limit.field);
+    if (indexed && limit.kind === 'MAX_LENGTH' && limit.unit === 'CODE_POINTS') {
+      const items = fields[indexed[1]];
+      const value = Array.isArray(items) ? items[Number(indexed[2])] : undefined;
+      if (typeof value === 'string') counters.push({
+        field: limit.field, current: [...value].length, limit: limit.value, unit: limit.unit, sourceStatus: limit.sourceStatus,
+      });
+      continue;
+    }
+    const value = fields[limit.field];
+    if (typeof value === 'string' && limit.kind === 'MAX_LENGTH') {
       const current = countFor(value, limit.unit);
-      if (current !== null) counters.push({ field: limit.field, current, limit: limit.value, unit: limit.unit, sourceStatus: limit.sourceStatus });
-    } else if (limit.field === 'tags' && limit.kind === 'MAX_COUNT' && limit.unit === 'ITEMS') {
-      counters.push({ field: 'tags', current: listing.tags?.length ?? 0, limit: limit.value, unit: limit.unit, sourceStatus: limit.sourceStatus });
-    } else if (limit.field === 'tags' && limit.kind === 'MAX_LENGTH' && limit.unit === 'CODE_POINTS') {
-      for (const [index, tag] of (listing.tags ?? []).entries()) {
-        counters.push({ field: `tags[${index}]`, current: [...tag].length, limit: limit.value, unit: limit.unit, sourceStatus: limit.sourceStatus });
+      if (current !== null) counters.push({
+        field: limit.field, current, limit: limit.value, unit: limit.unit, sourceStatus: limit.sourceStatus,
+      });
+    } else if (Array.isArray(value) && limit.kind === 'MAX_COUNT' && limit.unit === 'ITEMS') {
+      counters.push({
+        field: limit.field, current: value.length, limit: limit.value, unit: limit.unit, sourceStatus: limit.sourceStatus,
+      });
+    } else if (Array.isArray(value) && limit.kind === 'MAX_LENGTH' && limit.unit === 'CODE_POINTS') {
+      for (const [index, item] of value.entries()) {
+        if (typeof item === 'string') counters.push({
+          field: `${limit.field}[${index}]`,
+          current: [...item].length,
+          limit: limit.value,
+          unit: limit.unit,
+          sourceStatus: limit.sourceStatus,
+        });
       }
     }
   }
@@ -86,9 +105,10 @@ export function renderCheckResults(
   rules: RulesCheckResult,
   trademark: TrademarkCheckResult | null,
   trademarkState: 'complete' | 'not-configured' | 'unavailable',
-  listing: EtsyListingInput,
+  listing: MarketplaceListingInput,
   limits: readonly LimitView[],
   fieldSnapshots: Readonly<Record<string, string>> = {},
+  manualMode = false,
 ): void {
   root.replaceChildren();
   const groups = groupFindings(rules.findings);
@@ -101,24 +121,43 @@ export function renderCheckResults(
     for (const finding of groups[severity]) {
       const row = document.createElement('div');
       row.className = 'finding-row';
-      const target = findingTarget(finding.field);
-      const locateButton = document.createElement('button');
-      locateButton.type = 'button';
-      locateButton.className = 'finding';
-      locateButton.dataset.field = finding.field;
-      locateButton.textContent = finding.message;
-      row.append(locateButton);
-      if (target && finding.fix && typeof finding.fix.proposedValue === 'string') {
-        const applyButton = document.createElement('button');
-        applyButton.type = 'button';
-        applyButton.className = 'apply-suggestion';
-        applyButton.textContent = 'Điền gợi ý';
-        applyButton.dataset.action = 'apply-suggestion';
-        applyButton.dataset.field = target.field;
-        applyButton.dataset.index = String(target.index);
-        applyButton.dataset.proposedValue = finding.fix.proposedValue;
-        applyButton.dataset.expectedValue = fieldSnapshots[finding.field] ?? snapshotValue(listing, target.field, target.index);
-        row.append(applyButton);
+      const target = manualMode ? null : findingTarget(finding.field);
+      if (manualMode) {
+        const message = document.createElement('p');
+        message.className = 'finding';
+        message.textContent = finding.message;
+        row.append(message);
+      } else {
+        const locateButton = document.createElement('button');
+        locateButton.type = 'button';
+        locateButton.className = 'finding';
+        locateButton.dataset.field = finding.field;
+        locateButton.textContent = finding.message;
+        row.append(locateButton);
+      }
+
+      if (finding.fix && typeof finding.fix.proposedValue === 'string') {
+        if (manualMode) {
+          const copyButton = document.createElement('button');
+          copyButton.type = 'button';
+          copyButton.className = 'copy-suggestion';
+          copyButton.textContent = 'Sao chép giá trị đề xuất';
+          copyButton.dataset.action = 'copy-suggestion';
+          copyButton.dataset.proposedValue = finding.fix.proposedValue;
+          row.append(copyButton);
+        } else if (target) {
+          const applyButton = document.createElement('button');
+          applyButton.type = 'button';
+          applyButton.className = 'apply-suggestion';
+          applyButton.textContent = 'Điền gợi ý';
+          applyButton.dataset.action = 'apply-suggestion';
+          applyButton.dataset.field = target.field;
+          applyButton.dataset.index = String(target.index);
+          applyButton.dataset.proposedValue = finding.fix.proposedValue;
+          applyButton.dataset.expectedValue = fieldSnapshots[finding.field]
+            ?? snapshotValue(listing as EtsyListingInput, target.field, target.index);
+          row.append(applyButton);
+        }
       }
       section.append(row);
     }

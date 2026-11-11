@@ -36,6 +36,7 @@ input {
   color: inherit;
   font: inherit;
 }
+textarea { width: 100%; min-height: 88px; padding: 10px 12px; border: 1px solid #bdc8d2; border-radius: 6px; color: inherit; font: inherit; resize: vertical; }
 input:focus { outline: 3px solid rgb(20 105 160 / 20%); border-color: #1469a0; }
 .hint { margin: -4px 0 8px; color: #63717e; font-size: 12px; line-height: 1.5; }
 fieldset { display: grid; gap: 10px; margin: 12px 0 4px; padding: 16px; border: 1px solid #d5dce3; border-radius: 8px; }
