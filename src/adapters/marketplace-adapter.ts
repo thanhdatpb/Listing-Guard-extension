@@ -26,6 +26,17 @@ export interface EtsyListingInput {
   personalization?: { questions: PersonalizationQuestion[] };
 }
 
+export interface AmazonListingInput {
+  title?: string;
+  brand?: string;
+  bullet_points?: string[];
+  description?: string;
+  search_terms?: string;
+  product_type?: string;
+}
+
+export type MarketplaceListingInput = EtsyListingInput | AmazonListingInput;
+
 export interface ListingDraft {
   title?: string | null;
   description?: string | null;

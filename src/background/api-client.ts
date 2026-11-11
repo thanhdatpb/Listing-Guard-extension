@@ -166,11 +166,18 @@ export class ListingGuardApiClient {
     );
   }
 
-  async getEtsyLimits(settings: ApiSettings): Promise<import('../shared/api-types').RulesetLimitsResult> {
+  async getRulesetLimits(
+    settings: ApiSettings,
+    marketplace: import('../shared/tsv-mapping').Marketplace,
+  ): Promise<import('../shared/api-types').RulesetLimitsResult> {
     return requestJson(
       this.fetchImpl,
-      `${safeBaseUrl(settings.baseUrl)}/api/v1/rulesets/ETSY/limits`,
+      `${safeBaseUrl(settings.baseUrl)}/api/v1/rulesets/${marketplace}/limits`,
       this.headers(settings),
     );
+  }
+
+  async getEtsyLimits(settings: ApiSettings): Promise<import('../shared/api-types').RulesetLimitsResult> {
+    return this.getRulesetLimits(settings, 'ETSY');
   }
 }

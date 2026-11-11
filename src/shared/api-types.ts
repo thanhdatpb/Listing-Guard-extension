@@ -9,6 +9,7 @@ export interface PublicSettings {
   baseUrl: string;
   hasApiKey: boolean;
   hasCloudflareAccess: boolean;
+  tsvColumnMapping: import('./tsv-mapping').TsvColumnMapping;
 }
 
 export interface UsageResponse {
@@ -28,8 +29,8 @@ export interface ConnectionResult {
 }
 
 export interface ListingCheckRequest {
-  marketplace: 'ETSY';
-  listing: import('../adapters/marketplace-adapter').EtsyListingInput;
+  marketplace: import('./tsv-mapping').Marketplace;
+  listing: import('../adapters/marketplace-adapter').MarketplaceListingInput;
 }
 
 export interface CheckFinding {
@@ -102,6 +103,7 @@ export type ExtensionMessage =
       };
     }
   | { type: 'CHECK_CONNECTION' }
+  | { type: 'SAVE_TSV_COLUMN_MAPPING'; mapping: import('./tsv-mapping').TsvColumnMapping }
   | { type: 'CHECK_LISTING'; request: ListingCheckRequest; limits: true };
 
 export type ExtensionMessageResponse<T = undefined> =

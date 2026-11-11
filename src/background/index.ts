@@ -1,8 +1,13 @@
 import { ApiClientError, ListingGuardApiClient } from './api-client';
 import type { ApiSettings, ExtensionMessage, ExtensionMessageResponse, PublicSettings } from '../shared/api-types';
 
+import { configureSidePanelOnActionClick } from './side-panel-behavior';
+import { DEFAULT_TSV_COLUMN_MAPPING, validateTsvColumnMapping, type TsvColumnMapping } from '../shared/tsv-mapping';
+
 const STORAGE_KEY = 'listingGuardSettings';
+
 const apiClient = new ListingGuardApiClient();
+configureSidePanelOnActionClick(chrome.sidePanel);
 
 function isOptionsPage(sender: chrome.runtime.MessageSender): boolean {
   return sender.url === chrome.runtime.getURL('src/options/index.html');
@@ -46,12 +51,22 @@ async function readSettings(): Promise<ApiSettings | undefined> {
 async function handleMessage(message: ExtensionMessage): Promise<ExtensionMessageResponse<unknown>> {
   if (message.type === 'GET_SETTINGS') {
     const settings = await readSettings();
+    const storedMapping = await chrome.storage.local.get('listingGuardTsvColumnMapping');
     const publicSettings: PublicSettings = {
       baseUrl: settings?.baseUrl ?? '',
       hasApiKey: Boolean(settings?.apiKey),
       hasCloudflareAccess: Boolean(settings?.cloudflareAccessClientId && settings.cloudflareAccessClientSecret),
+      tsvColumnMapping: storedMapping.listingGuardTsvColumnMapping
+        ? validateTsvColumnMapping(storedMapping.listingGuardTsvColumnMapping as TsvColumnMapping)
+        : DEFAULT_TSV_COLUMN_MAPPING,
     };
     return { ok: true, data: publicSettings };
+  }
+
+  if (message.type === 'SAVE_TSV_COLUMN_MAPPING') {
+    const mapping = validateTsvColumnMapping(message.mapping);
+    await chrome.storage.local.set({ listingGuardTsvColumnMapping: mapping });
+    return { ok: true, data: { saved: true } };
   }
 
   if (message.type === 'SAVE_SETTINGS') {
@@ -98,7 +113,7 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionMessag
   if (message.type === 'CHECK_LISTING') {
     const rules = await apiClient.checkRules(settings, message.request);
     const [limitsResult, trademarkResult] = await Promise.allSettled([
-      apiClient.getEtsyLimits(settings),
+      apiClient.getRulesetLimits(settings, message.request.marketplace),
       apiClient.checkTrademark(settings, message.request),
     ]);
     const bundle: import('../shared/api-types').CheckBundleResult = {
@@ -125,7 +140,9 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   }
   const allowed = message.type === 'CHECK_LISTING'
     ? isSidePanelPage(sender)
-    : isOptionsPage(sender);
+    : message.type === 'GET_SETTINGS'
+      ? isOptionsPage(sender) || isSidePanelPage(sender)
+      : isOptionsPage(sender);
   if (!allowed) {
     return false;
   }

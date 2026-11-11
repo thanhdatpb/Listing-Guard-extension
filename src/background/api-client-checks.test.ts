@@ -18,17 +18,20 @@ describe('ListingGuardApiClient listing checks', () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(response({ checkId: 'r', findings: [], readiness: null }))
       .mockResolvedValueOnce(response({ marketplace: 'ETSY', limits: [] }))
+      .mockResolvedValueOnce(response({ marketplace: 'AMAZON', limits: [] }))
       .mockResolvedValueOnce(response({ checkId: 't', disclaimer: 'warning', findings: [], riskLevel: 'UNKNOWN', completeness: 'INCOMPLETE' }));
     const client = new ListingGuardApiClient(fetchMock);
     const request = { marketplace: 'ETSY' as const, listing: { title: 'A title' } };
 
     await client.checkRules(settings, request);
     await client.getEtsyLimits(settings);
+    await client.getRulesetLimits(settings, 'AMAZON');
     await client.checkTrademark(settings, request);
 
     expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.method])).toEqual([
       ['https://api.example.test/api/v1/checks', 'POST'],
       ['https://api.example.test/api/v1/rulesets/ETSY/limits', 'GET'],
+      ['https://api.example.test/api/v1/rulesets/AMAZON/limits', 'GET'],
       ['https://api.example.test/api/v1/trademark-checks', 'POST'],
     ]);
     const [url, init] = fetchMock.mock.calls[0];
