@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { installMarketplaceBridge, type MarketplaceContentMessage, type MarketplaceContentResponse } from './bridge';
 import { MockAdapter } from '../adapters/mock/mock-adapter';
 
@@ -31,5 +31,30 @@ describe('marketplace content bridge', () => {
     expect(captureListener(null)({ type: 'EXPORT_FIXTURE_DOM' })).toEqual({ ok: false, code: 'INVALID_MESSAGE' });
     expect(captureListener(null, { enabled: true, documentRef: document })({ type: 'EXPORT_FIXTURE_DOM' }))
       .toMatchObject({ ok: true, html: expect.stringContaining('<main id="synthetic">') });
+  });
+
+  it('refuses a suggestion after the field changes and fills only the checked value', () => {
+    document.body.innerHTML = '<main data-synthetic-marketplace="mock"><input data-mock-field="title" value="Checked title"></main>';
+    const title = document.querySelector<HTMLInputElement>('[data-mock-field="title"]')!;
+    const inputListener = vi.fn();
+    title.addEventListener('input', inputListener);
+    const send = captureListener(new MockAdapter(document));
+
+    const read = send({ type: 'READ_LISTING' });
+    expect(read).toMatchObject({ ok: true, listing: { title: 'Checked title' }, fieldSnapshots: { title: 'Checked title' } });
+    title.value = ' Checked title ';
+    expect(send({
+      type: 'FILL_SUGGESTION', field: 'title', index: 0,
+      expectedValue: 'Checked title', value: 'Suggested title',
+    })).toEqual({ ok: false, code: 'FIELD_CHANGED' });
+    expect(title.value).toBe(' Checked title ');
+    expect(inputListener).not.toHaveBeenCalled();
+
+    expect(send({
+      type: 'FILL_SUGGESTION', field: 'title', index: 0,
+      expectedValue: ' Checked title ', value: 'Suggested title',
+    })).toEqual({ ok: true, filled: true });
+    expect(title.value).toBe('Suggested title');
+    expect(inputListener).toHaveBeenCalledOnce();
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLimitCounters, groupFindings, renderCheckResults } from './check-view';
+import { buildLimitCounters, findingTarget, groupFindings, renderCheckResults } from './check-view';
 import type { CheckFinding, LimitView, RulesCheckResult } from '../shared/api-types';
 
 const finding = (severity: CheckFinding['severity'], ruleId: string): CheckFinding => ({
@@ -12,6 +12,13 @@ describe('side panel check view', () => {
     expect(groups.ERROR.map((item) => item.ruleId)).toEqual(['one']);
     expect(groups.WARNING.map((item) => item.ruleId)).toEqual(['two']);
     expect(groups.INFO.map((item) => item.ruleId)).toEqual(['three']);
+  });
+
+  it('maps API personalization field paths through the adapter contract', () => {
+    expect(findingTarget('personalization.questions[2].question_text')).toEqual({ field: 'personalization', index: 2 });
+    expect(findingTarget('personalization.questions')).toEqual({ field: 'personalization', index: 0 });
+    expect(findingTarget('tags[1]')).toEqual({ field: 'tags', index: 1 });
+    expect(findingTarget('unmapped.field')).toBeNull();
   });
 
   it('uses API limits and units for counters', () => {
@@ -40,5 +47,24 @@ describe('side panel check view', () => {
     expect(document.querySelector('.paired-status')?.textContent).toContain('UNKNOWN · INCOMPLETE');
     expect(document.querySelector('.paired-status')?.textContent).toContain('Sẵn sàng: INCOMPLETE');
     expect(document.querySelector('.trademark-section')?.textContent).toContain('Disclaimer');
+  });
+
+  it('renders an explicit apply button with the check-time value for verified fixes', () => {
+    document.body.innerHTML = '<div id="results"></div>';
+    const rules: RulesCheckResult = {
+      checkId: 'rules-id', status: 'COMPLETED', marketplace: 'ETSY', cached: false,
+      findings: [{
+        ...finding('WARNING', 'title_fix'),
+        fix: { action: 'REPLACE', description: 'Shorten title', proposedValue: 'Suggested title' },
+      }],
+      readiness: null,
+    };
+    renderCheckResults(document.querySelector('#results')!, rules, null, 'not-configured', { title: 'Original title' }, []);
+
+    const button = document.querySelector<HTMLButtonElement>('[data-action="apply-suggestion"]');
+    expect(button?.textContent).toBe('Điền gợi ý');
+    expect(button?.dataset.field).toBe('title');
+    expect(button?.dataset.expectedValue).toBe('Original title');
+    expect(button?.dataset.proposedValue).toBe('Suggested title');
   });
 });

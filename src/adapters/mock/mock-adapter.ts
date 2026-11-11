@@ -65,16 +65,38 @@ export class MockAdapter implements MarketplaceAdapter {
     return normalizeListingDraft(draft);
   }
 
+readFieldValue(field: ListingField, index = 0): string | undefined {
+    if (!this.detectPage() || !Number.isInteger(index) || index < 0) return undefined;
+    if (field !== 'tags' && field !== 'personalization' && index !== 0) return undefined;
+    const root = this.documentRef.querySelector<HTMLElement>(SYNTHETIC_PAGE_SELECTOR);
+    if (!root) return undefined;
+    if (field === 'tags') {
+      const tags = [...root.querySelectorAll<HTMLInputElement>('[data-mock-field="tags"]')]
+        .filter((input) => input.value.trim() !== '');
+      return tags[index]?.value;
+    }
+    const selector = field === 'personalization'
+      ? `[data-mock-field="personalization"][data-mock-index="${index}"]`
+      : `[data-mock-field="${field}"]`;
+    return getValue(root.querySelector<HTMLElement>(selector));
+  }
+
   locate(field: ListingField, index = 0): HTMLElement | null {
     if (!this.detectPage() || !Number.isInteger(index) || index < 0) return null;
-    const indexedField = field === 'tags' || field === 'personalization';
-    if (!indexedField && index !== 0) return null;
+    if (field !== 'tags' && field !== 'personalization' && index !== 0) return null;
     const root = this.documentRef.querySelector<HTMLElement>(SYNTHETIC_PAGE_SELECTOR);
     if (!root) return null;
-    const selector = indexedField
-      ? `[data-mock-field="${field}"][data-mock-index="${index}"]`
-      : `[data-mock-field="${field}"]`;
-    const element = root.querySelector<HTMLElement>(selector);
+    let element: HTMLElement | null;
+    if (field === 'tags') {
+      const tags = [...root.querySelectorAll<HTMLElement>('[data-mock-field="tags"]')]
+        .filter((tag) => Boolean(getValue(tag)?.trim()));
+      element = tags[index] ?? null;
+    } else {
+      const selector = field === 'personalization'
+        ? `[data-mock-field="personalization"][data-mock-index="${index}"]`
+        : `[data-mock-field="${field}"]`;
+      element = root.querySelector<HTMLElement>(selector);
+    }
     if (!element) return null;
     element.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
     element.classList.add('listing-guard-highlight');

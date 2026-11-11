@@ -10,7 +10,9 @@ button:disabled { cursor: wait; opacity: .65; }
 #status { color: #536270; font-size: 13px; line-height: 1.5; }
 section { margin-top: 18px; padding: 14px; border: 1px solid #d5dce3; border-radius: 9px; background: #fff; }
 section h2 { margin: 0 0 10px; font-size: 15px; }
-.finding { display: block; width: 100%; margin: 8px 0; border: 1px solid #d5dce3; background: #fff; color: #17212b; text-align: left; font-size: 13px; line-height: 1.4; }
+.finding-row { display: flex; align-items: stretch; gap: 6px; margin: 8px 0; }
+.finding { flex: 1; width: 100%; border: 1px solid #d5dce3; background: #fff; color: #17212b; text-align: left; font-size: 13px; line-height: 1.4; }
+button.apply-suggestion { flex: 0 0 auto; padding: 8px; border: 1px solid #075a91; background: #eef6fb; color: #075a91; font-size: 12px; }
 .trademark-section .finding { border: 0; padding: 4px 0; }
 .paired-status { display: flex; align-items: stretch; gap: 8px; margin: 10px 0; }
 .paired-status strong { flex: 1; display: grid; place-items: center; min-height: 52px; padding: 8px; border-radius: 7px; background: #edf3f7; text-align: center; font-size: 15px; }

@@ -7,7 +7,7 @@ import type {
   TrademarkCheckResult,
 } from '../shared/api-types';
 import type { MarketplaceContentResponse } from '../content/bridge';
-import { renderCheckResults } from './check-view';
+import { findingTarget, renderCheckResults } from './check-view';
 
 import type { EtsyListingInput } from '../adapters/marketplace-adapter';
 import { sanitizeFixtureHtml } from '../dev/fixture-sanitizer';
@@ -36,7 +36,7 @@ async function sendMessage<T>(message: ExtensionMessage): Promise<T> {
   return response.data;
 }
 
-async function getListing(): Promise<{ tabId: number; listing: EtsyListingInput }> {
+async function getListing(): Promise<{ tabId: number; listing: EtsyListingInput; fieldSnapshots: Record<string, string> }> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id === undefined) throw new Error('Không tìm thấy tab Etsy đang hoạt động.');
   const response = await chrome.tabs.sendMessage(tab.id, { type: 'READ_LISTING' }) as MarketplaceContentResponse;
@@ -46,7 +46,7 @@ async function getListing(): Promise<{ tabId: number; listing: EtsyListingInput 
       : 'Không tìm thấy dữ liệu listing trên trang hiện tại.');
   }
   if (!response.listing) throw new Error('Adapter không trả về dữ liệu listing.');
-  return { tabId: tab.id, listing: response.listing };
+  return { tabId: tab.id, listing: response.listing, fieldSnapshots: response.fieldSnapshots ?? {} };
 }
 
 async function checkListing(): Promise<void> {
@@ -55,12 +55,12 @@ async function checkListing(): Promise<void> {
   status.textContent = 'Đang đọc listing qua marketplace adapter…';
   results.replaceChildren();
   try {
-    const { tabId, listing } = await getListing();
+    const { tabId, listing, fieldSnapshots } = await getListing();
     currentTabId = tabId;
     status.textContent = 'Đang kiểm tra rules, nhãn hiệu và giới hạn API…';
     const request: ListingCheckRequest = { marketplace: 'ETSY', listing };
     const bundle = await sendMessage<CheckBundle>({ type: 'CHECK_LISTING', request, limits: true });
-    renderCheckResults(results, bundle.rules, bundle.trademark, bundle.trademarkState, listing, bundle.limits);
+    renderCheckResults(results, bundle.rules, bundle.trademark, bundle.trademarkState, listing, bundle.limits, fieldSnapshots);
     status.textContent = [bundle.limitsMessage, bundle.trademarkMessage].filter(Boolean).join(' ')
       || `Đã hoàn tất. ${bundle.rules.findings.length} finding từ rules.`;
   } catch (error) {
@@ -70,27 +70,53 @@ async function checkListing(): Promise<void> {
   }
 }
 
-async function locateFinding(event: Event, tabId: number | undefined): Promise<void> {
-  if (tabId === undefined) return;
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
-  const fieldPath = target.closest<HTMLElement>('[data-field]')?.dataset.field;
-  if (!fieldPath) return;
-  const indexed = /^(tags|personalization)\[(\d+)\]$/u.exec(fieldPath);
-  const field = indexed?.[1] ?? fieldPath;
-  if (!['title', 'description', 'tags', 'price', 'quantity', 'personalization'].includes(field)) return;
+async function handleResultClick(event: Event, tabId: number | undefined): Promise<void> {
+  if (tabId === undefined || !(event.target instanceof HTMLElement)) return;
+  const button = event.target.closest<HTMLButtonElement>('button');
+  const fieldPath = button?.dataset.field;
+  if (!button || !fieldPath) return;
+  if (button.dataset.action === 'apply-suggestion') {
+    const field = fieldPath;
+    const index = Number(button.dataset.index);
+    const value = button.dataset.proposedValue;
+    const expectedValue = button.dataset.expectedValue;
+    if (!['title', 'description', 'tags', 'price', 'quantity', 'personalization'].includes(field)
+      || !Number.isInteger(index) || index < 0 || value === undefined || expectedValue === undefined) return;
+    try {
+      const response = await chrome.tabs.sendMessage(tabId, {
+        type: 'FILL_SUGGESTION',
+        field,
+        index,
+        value,
+        expectedValue,
+      }) as MarketplaceContentResponse;
+      if (response.ok && response.filled) {
+        if (status) status.textContent = 'Đã điền gợi ý. Chưa lưu và chưa chạy kiểm tra lại.';
+      } else if (!response.ok && response.code === 'FIELD_CHANGED') {
+        if (status) status.textContent = 'Ô đã thay đổi từ lúc kiểm tra. Hãy chạy Check thủ công trước khi áp dụng gợi ý.';
+      } else {
+        if (status) status.textContent = 'Không thể điền gợi ý vào trường này.';
+      }
+    } catch {
+      if (status) status.textContent = 'Không thể gửi gợi ý tới trang listing hiện tại.';
+    }
+    return;
+  }
+
+  const targetField = findingTarget(fieldPath);
+  if (!targetField) return;
   try {
     await chrome.tabs.sendMessage(tabId, {
       type: 'LOCATE_FINDING',
-      field,
-      index: indexed ? Number(indexed[2]) : 0,
+      field: targetField.field,
+      index: targetField.index,
     });
   } catch {
     if (status) status.textContent = 'Không thể chuyển tới trường trên trang listing hiện tại.';
   }
 }
 
-results?.addEventListener('click', (event) => { void locateFinding(event, currentTabId); });
+results?.addEventListener('click', (event) => { void handleResultClick(event, currentTabId); });
 
 checkButton?.addEventListener('click', () => { void checkListing(); });
 async function exportFixture(): Promise<void> {
