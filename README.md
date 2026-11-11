@@ -16,6 +16,22 @@ npm test
 npm run build
 ```
 
+### Capture a sanitized Etsy fixture (development build)
+
+The fixture export button and the Chrome `downloads` permission are included only by `npm run build:dev`.
+The normal `npm run build` output is the production build and does not include either.
+
+1. Run `npm install`, then `npm run build:dev`.
+2. In Chrome, open `chrome://extensions`, enable Developer mode, and choose **Load unpacked**.
+3. Select the repository's `dist` folder.
+4. Open your own Etsy listing editor and open Listing Guard's Side Panel.
+5. Choose **Xuất fixture**. The extension removes scripts, embedded frames, inline event handlers, hidden input values,
+   and redacts credentials, contact details, image URLs, and shop/listing IDs before saving the HTML file.
+6. Review the downloaded file and send it for selector review.
+
+The capture feature preserves page structure and useful `id`, `name`, `data-*`, and `aria-*` attributes where possible.
+Do not send an unreviewed raw page dump; only send the exported, sanitized fixture.
+
 Load the generated `dist/` folder as an unpacked extension from `chrome://extensions` with Developer mode enabled.
 
 ## Privacy

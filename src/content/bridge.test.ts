@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { installMarketplaceBridge, type MarketplaceContentMessage, type MarketplaceContentResponse } from './bridge';
 import { MockAdapter } from '../adapters/mock/mock-adapter';
 
-function captureListener(adapter: MockAdapter | null) {
+function captureListener(adapter: MockAdapter | null, fixtureCapture?: { enabled: boolean; documentRef?: Document }) {
   let listener: ((message: unknown, sender: unknown, response: (value: MarketplaceContentResponse) => void) => boolean | void) | undefined;
-  installMarketplaceBridge(adapter, { addListener: (next) => { listener = next; } });
+  installMarketplaceBridge(adapter, { addListener: (next) => { listener = next; } }, fixtureCapture);
   return (message: MarketplaceContentMessage): MarketplaceContentResponse => {
     let result: MarketplaceContentResponse = { ok: false, code: 'INVALID_MESSAGE' };
     listener?.(message, {}, (response) => { result = response; });
@@ -24,5 +24,12 @@ describe('marketplace content bridge', () => {
   it('does not claim Etsy DOM support without an adapter', () => {
     const send = captureListener(null);
     expect(send({ type: 'READ_LISTING' })).toEqual({ ok: false, code: 'ADAPTER_UNAVAILABLE' });
+  });
+
+  it('exports page markup only when the dev fixture capture build enables it', () => {
+    document.body.innerHTML = '<main id="synthetic">Fixture page</main>';
+    expect(captureListener(null)({ type: 'EXPORT_FIXTURE_DOM' })).toEqual({ ok: false, code: 'INVALID_MESSAGE' });
+    expect(captureListener(null, { enabled: true, documentRef: document })({ type: 'EXPORT_FIXTURE_DOM' }))
+      .toMatchObject({ ok: true, html: expect.stringContaining('<main id="synthetic">') });
   });
 });

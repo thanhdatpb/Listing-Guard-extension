@@ -10,6 +10,7 @@ import type { MarketplaceContentResponse } from '../content/bridge';
 import { renderCheckResults } from './check-view';
 
 import type { EtsyListingInput } from '../adapters/marketplace-adapter';
+import { sanitizeFixtureHtml } from '../dev/fixture-sanitizer';
 
 interface CheckBundle {
   rules: RulesCheckResult;
@@ -92,3 +93,29 @@ async function locateFinding(event: Event, tabId: number | undefined): Promise<v
 results?.addEventListener('click', (event) => { void locateFinding(event, currentTabId); });
 
 checkButton?.addEventListener('click', () => { void checkListing(); });
+async function exportFixture(): Promise<void> {
+  if (!status) return;
+  status.textContent = 'Đang tạo fixture đã làm sạch…';
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id === undefined) throw new Error('Không tìm thấy tab hiện tại.');
+    const response = await chrome.tabs.sendMessage(tab.id, { type: 'EXPORT_FIXTURE_DOM' }) as MarketplaceContentResponse;
+    if (!response.ok || !response.html) throw new Error('Không thể đọc DOM của trang hiện tại.');
+    const sanitized = sanitizeFixtureHtml(response.html, tab.url ?? '');
+    const url = URL.createObjectURL(new Blob([sanitized.html], { type: 'text/html;charset=utf-8' }));
+    await chrome.downloads.download({ url, filename: 'listing-guard-fixture.html', saveAs: true });
+    status.textContent = 'Đã tải fixture đã làm sạch. Kiểm tra file trước khi gửi.';
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch {
+    status.textContent = 'Không thể xuất fixture. Hãy mở trang soạn Etsy trong tab hiện tại.';
+  }
+}
+
+if (__DEV_FIXTURE_CAPTURE__) {
+  const exportButton = document.createElement('button');
+  exportButton.type = 'button';
+  exportButton.className = 'secondary';
+  exportButton.textContent = 'Xuất fixture';
+  exportButton.addEventListener('click', () => { void exportFixture(); });
+  checkButton?.insertAdjacentElement('afterend', exportButton);
+}
