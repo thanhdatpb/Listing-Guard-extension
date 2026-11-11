@@ -17,6 +17,10 @@ npm test
 npm run build
 ```
 
+On Windows, run the commands from PowerShell or Command Prompt in `D:\...`. In Git Bash, a `/d/...` working directory makes
+Vitest fail with `Cannot read properties of undefined (reading 'config')`, because the drive letter is read in two cases and
+the test files load a second copy of Vitest.
+
 ### Capture a sanitized Etsy fixture (development build)
 
 The fixture export button and the Chrome `downloads` permission are included only by `npm run build:dev`.
