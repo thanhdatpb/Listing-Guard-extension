@@ -1,0 +1,17 @@
+:root { color: #17212b; background: #f4f6f8; font-family: Arial, sans-serif; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { min-width: 280px; margin: 0; }
+main { padding: 18px; }
+.eyebrow { margin: 0 0 6px; color: #536b7e; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
+h1 { margin: 0; font-size: 22px; }
+.intro { color: #536270; font-size: 13px; line-height: 1.45; }
+button { border: 0; border-radius: 7px; padding: 11px 16px; background: #075a91; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+button:disabled { cursor: wait; opacity: .65; }
+#status { color: #536270; font-size: 13px; line-height: 1.5; }
+section { margin-top: 18px; padding: 14px; border: 1px solid #d5dce3; border-radius: 9px; background: #fff; }
+section h2 { margin: 0 0 10px; font-size: 15px; }
+.finding { display: block; width: 100%; margin: 8px 0; border: 1px solid #d5dce3; background: #fff; color: #17212b; text-align: left; font-size: 13px; line-height: 1.4; }
+.trademark-section .finding { border: 0; padding: 4px 0; }
+.paired-status { display: flex; align-items: stretch; gap: 8px; margin: 10px 0; }
+.paired-status strong { flex: 1; display: grid; place-items: center; min-height: 52px; padding: 8px; border-radius: 7px; background: #edf3f7; text-align: center; font-size: 15px; }
+.trademark-section p, .counters p { font-size: 12px; line-height: 1.45; }

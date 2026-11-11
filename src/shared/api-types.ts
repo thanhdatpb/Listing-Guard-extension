@@ -27,6 +27,69 @@ export interface ConnectionResult {
   usage: UsageResponse;
 }
 
+export interface ListingCheckRequest {
+  marketplace: 'ETSY';
+  listing: import('../adapters/marketplace-adapter').EtsyListingInput;
+}
+
+export interface CheckFinding {
+  ruleId: string;
+  source: 'RULE' | 'LLM';
+  severity: 'ERROR' | 'WARNING' | 'INFO';
+  field: string;
+  value: string | null;
+  message: string;
+  suggestion: string;
+  fix: { action: string; description: string; proposedValue: string } | null;
+}
+
+export interface RulesCheckResult {
+  checkId: string;
+  status: string;
+  marketplace: string;
+  cached: boolean;
+  findings: CheckFinding[];
+  readiness: { score: number | null; ready: boolean; status: string; version: string } | null;
+}
+
+export interface LimitView {
+  field: string;
+  kind: 'MAX_LENGTH' | 'MAX_COUNT' | 'MAX_BYTES' | 'MAX_OCCURRENCES' | string;
+  value: number;
+  unit: 'CODE_POINTS' | 'ITEMS' | 'WORDS' | 'UTF8_BYTES' | 'OCCURRENCES' | string;
+  sourceStatus: 'VERIFIED' | 'SECONDARY' | 'UNVERIFIED' | string;
+  enabled: boolean;
+}
+
+export interface RulesetLimitsResult {
+  marketplace: string;
+  limits: LimitView[];
+}
+
+export interface CheckBundleResult {
+  rules: RulesCheckResult;
+  limits: LimitView[];
+  limitsMessage?: string;
+  trademark: TrademarkCheckResult | null;
+  trademarkState: 'complete' | 'not-configured' | 'unavailable';
+  trademarkMessage?: string;
+}
+
+export interface TrademarkFinding {
+  field: string;
+  risk: 'LOW' | 'MEDIUM' | 'HIGH';
+  message: string;
+  suggestion: string;
+}
+
+export interface TrademarkCheckResult {
+  checkId: string;
+  completeness: 'COMPLETE' | 'INCOMPLETE';
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
+  disclaimer: string;
+  findings: TrademarkFinding[];
+}
+
 export type ExtensionMessage =
   | { type: 'GET_SETTINGS' }
   | {
@@ -38,8 +101,9 @@ export type ExtensionMessage =
         cloudflareAccessClientSecret?: string;
       };
     }
-  | { type: 'CHECK_CONNECTION' };
+  | { type: 'CHECK_CONNECTION' }
+  | { type: 'CHECK_LISTING'; request: ListingCheckRequest; limits: true };
 
 export type ExtensionMessageResponse<T = undefined> =
   | { ok: true; data: T }
-  | { ok: false; error: { message: string; requestId?: string } };
+  | { ok: false; error: { message: string; requestId?: string; code?: string } };
