@@ -57,6 +57,20 @@ describe('MockAdapter', () => {
     expect(personalization.value).toBe('updated personalization');
   });
 
+  it('maps cleaned tag indexes across blank synthetic entries', () => {
+    document.body.innerHTML = `
+      <main data-synthetic-marketplace="mock">
+        <input data-mock-field="tags" data-mock-index="0" value="first">
+        <input data-mock-field="tags" data-mock-index="1" value="   ">
+        <input data-mock-field="tags" data-mock-index="2" value=" second ">
+      </main>`;
+    const adapter = new MockAdapter(document);
+    const secondTag = document.querySelector<HTMLInputElement>('[data-mock-index="2"]');
+
+    expect(adapter.readFieldValue('tags', 1)).toBe(' second ');
+    expect(adapter.locate('tags', 1)).toBe(secondTag);
+  });
+
   it('does not detect or read pages without its synthetic marker', () => {
     document.body.innerHTML = '<main><input data-mock-field="title" value="Anything"></main>';
     const adapter = new MockAdapter(document);

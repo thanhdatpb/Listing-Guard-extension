@@ -42,6 +42,8 @@ export interface ListingDraft {
 export interface MarketplaceAdapter {
   detectPage(): boolean;
   readListing(): EtsyListingInput | null;
+  /** Return the raw current value for a supported field without normalizing it. */
+  readFieldValue(field: ListingField, index?: number): string | undefined;
   /** Resolve a field, scroll it into view, and highlight it when found. */
   locate(field: ListingField, index?: number): HTMLElement | null;
   /** Fill one field and dispatch an input event. Returns false if the field is not found. */

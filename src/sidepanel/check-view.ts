@@ -7,6 +7,35 @@ import type {
 
 import type { EtsyListingInput } from '../adapters/marketplace-adapter';
 
+import type { ListingField } from '../adapters/marketplace-adapter';
+
+export function findingTarget(fieldPath: string): { field: ListingField; index: number } | null {
+  const indexed = /^(tags|personalization)\[(\d+)\]$/u.exec(fieldPath);
+  if (indexed) return { field: indexed[1] as ListingField, index: Number(indexed[2]) };
+  const personalization = /^personalization\.questions(?:\[(\d+)\])?(?:\.(?:question_text|instructions|options(?:\[\d+\])?|max_chars|required|max_files|type))?$/u.exec(fieldPath);
+  if (personalization) return { field: 'personalization', index: Number(personalization[1] ?? 0) };
+  if (['title', 'description', 'price', 'quantity'].includes(fieldPath)) {
+    return { field: fieldPath as ListingField, index: 0 };
+  }
+  return null;
+}
+
+function snapshotValue(
+  listing: EtsyListingInput,
+  field: ListingField,
+  index: number,
+): string {
+  if (field === 'title' || field === 'description') return listing[field] ?? '';
+  if (field === 'tags') return listing.tags?.[index] ?? '';
+  if (field === 'quantity') return listing.quantity === undefined ? '' : String(listing.quantity);
+  if (field === 'price') {
+    if (typeof listing.price === 'string' || typeof listing.price === 'number') return String(listing.price);
+    if (listing.price && typeof listing.price === 'object') return String(listing.price.amount);
+    return '';
+  }
+  return listing.personalization?.questions[index]?.question_text ?? '';
+}
+
 export type FindingGroup = 'ERROR' | 'WARNING' | 'INFO';
 
 export function groupFindings(findings: readonly CheckFinding[]): Record<FindingGroup, CheckFinding[]> {
@@ -59,6 +88,7 @@ export function renderCheckResults(
   trademarkState: 'complete' | 'not-configured' | 'unavailable',
   listing: EtsyListingInput,
   limits: readonly LimitView[],
+  fieldSnapshots: Readonly<Record<string, string>> = {},
 ): void {
   root.replaceChildren();
   const groups = groupFindings(rules.findings);
@@ -69,12 +99,28 @@ export function renderCheckResults(
     heading.textContent = severity;
     section.append(heading);
     for (const finding of groups[severity]) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'finding';
-      button.dataset.field = finding.field;
-      button.textContent = finding.message;
-      section.append(button);
+      const row = document.createElement('div');
+      row.className = 'finding-row';
+      const target = findingTarget(finding.field);
+      const locateButton = document.createElement('button');
+      locateButton.type = 'button';
+      locateButton.className = 'finding';
+      locateButton.dataset.field = finding.field;
+      locateButton.textContent = finding.message;
+      row.append(locateButton);
+      if (target && finding.fix && typeof finding.fix.proposedValue === 'string') {
+        const applyButton = document.createElement('button');
+        applyButton.type = 'button';
+        applyButton.className = 'apply-suggestion';
+        applyButton.textContent = 'Điền gợi ý';
+        applyButton.dataset.action = 'apply-suggestion';
+        applyButton.dataset.field = target.field;
+        applyButton.dataset.index = String(target.index);
+        applyButton.dataset.proposedValue = finding.fix.proposedValue;
+        applyButton.dataset.expectedValue = fieldSnapshots[finding.field] ?? snapshotValue(listing, target.field, target.index);
+        row.append(applyButton);
+      }
+      section.append(row);
     }
     root.append(section);
   }
