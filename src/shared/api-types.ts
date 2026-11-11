@@ -41,12 +41,12 @@ export interface CheckFinding {
   value: string | null;
   message: string;
   suggestion: string;
-  fix: { action: string; description: string; proposedValue: string } | null;
+  fix: { action: 'REPLACE' | 'REMOVE'; description: string; proposedValue: string | null } | null;
 }
 
 export interface RulesCheckResult {
   checkId: string;
-  status: string;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
   marketplace: string;
   cached: boolean;
   findings: CheckFinding[];
@@ -78,7 +78,7 @@ export interface CheckBundleResult {
 
 export interface TrademarkFinding {
   field: string;
-  risk: 'LOW' | 'MEDIUM' | 'HIGH';
+  risk: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
   message: string;
   suggestion: string;
 }
