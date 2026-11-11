@@ -34,10 +34,26 @@ manual Amazon form could not send.
 Drift found and fixed by this test: `fix.proposedValue` can be `null` (a `REMOVE` fix), a trademark finding `risk` can be
 `UNKNOWN`, `fix.action` is `REPLACE | REMOVE`, and `status` is `PENDING | COMPLETED | FAILED`.
 
-Known gap, not changed here: the extension never sends the Etsy fields `who_made`, `when_made`, `category`,
-`taxonomy_path`, `materials` and `images`. The API reports `who_made` and `when_made` as missing required fields, so an
-Etsy check from the extension shows those findings. The test lists these fields as unmodelled; adding them is a product
-decision.
+### Etsy required fields in the manual form
+
+The ruleset `etsy-2026-12` requires `title`, `description`, `price`, `quantity`, `who_made`, `when_made` and `category`
+(`required_fields`, source Etsy `createDraftListing`). The manual Etsy form sent only `title`, `tags` and `description`, so
+every manual check reported the others as missing. The form now has all of them:
+
+- `who_made` and `when_made` are dropdowns of the Etsy Open API v3 codes, kept in one file, `src/shared/etsy-codes.ts`, with
+  the source and the date they were copied (2026-11-11). The input schema only gives examples, so it cannot be the source.
+  Etsy changes the `2020_20xx` range code by year, so the list can go stale: each dropdown has **Mã khác** with a text box,
+  and the extension never rejects an unknown code; the API reports it. Defaults are `i_did` and `made_to_order`.
+- `category` is free text sent as a string, as the input schema defines it (a name or a taxonomy_id as text, never
+  converted to a number).
+- `price` is a decimal number sent as text (`"19.99"`); `quantity` is a whole number of zero or more sent as a JSON number.
+  Anything else is refused with a Vietnamese message and not sent.
+- The five fields can be added to the Etsy TSV column order in Options. The default order (`title`, `tags`, `description`)
+  is unchanged. A blank `who_made` or `when_made` cell restores the default code.
+- The tests check that the request carries all seven required fields. They cannot show the API's answer: the API repository
+  is the source of truth for whether a finding appears.
+
+`taxonomy_path`, `materials` and `images` stay unmodelled.
 
 ### Amazon customization input
 

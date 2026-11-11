@@ -43,6 +43,11 @@ adapter, or **Nhập tay** to enter Etsy or Amazon fields. To import one Google 
 box, then click **Dán từ Google Sheet**. Configure the field order in Options first; the extension stores only field names
 and their order, never the row contents.
 
+The Etsy form has the fields the ruleset requires: **Danh mục** (free text), **who_made** and **when_made** (dropdowns of
+the Etsy codes, defaults `i_did` and `made_to_order`, plus **Mã khác** for any other code), **Giá** (decimal, sent as text)
+and **Số lượng** (whole number). These five can also be added to the end of the Etsy TSV column order in Options; the
+default order is unchanged.
+
 For an Amazon Custom product, the Amazon form also has **Tùy biến Amazon Custom (tùy chọn)**: add print surfaces, then
 text inputs (`max_chars`, allowed character types), dropdowns (one option per line) and image inputs (a label only; no
 image is uploaded). It is sent as the `customization` block of the API input schema, is not part of a TSV row, and is
