@@ -13,6 +13,8 @@ import type { MarketplaceListingInput, EtsyListingInput } from '../adapters/mark
 import { DEFAULT_TSV_COLUMN_MAPPING, mapTsvRow, normalizeManualListing, parseTsvRow, type Marketplace } from '../shared/tsv-mapping';
 import { sanitizeFixtureHtml } from '../dev/fixture-sanitizer';
 import { createCustomizationForm } from './customization-form';
+import { createCodeField, readCodeField, writeCodeField } from './etsy-fields';
+import { DEFAULT_WHEN_MADE, DEFAULT_WHO_MADE, WHEN_MADE_CODES, WHO_MADE_CODES } from '../shared/etsy-codes';
 
 interface CheckBundle {
   rules: RulesCheckResult;
@@ -162,11 +164,17 @@ async function handleResultClick(event: Event, tabId: number | undefined, manual
 checkButton?.addEventListener('click', () => { void checkListing(); });
 function renderManualFields(marketplace: Marketplace): void {
   if (!manualFields) return;
-  const fieldSpecs = marketplace === 'ETSY'
+  type FieldSpec = { field: string; label: string; multiline: boolean; codes?: readonly string[]; defaultCode?: string };
+  const fieldSpecs: FieldSpec[] = marketplace === 'ETSY'
     ? [
         { field: 'title', label: 'Tiêu đề', multiline: false },
         { field: 'tags', label: 'Tags (phân tách bằng dấu phẩy)', multiline: true },
         { field: 'description', label: 'Mô tả', multiline: true },
+        { field: 'category', label: 'Danh mục (tên hoặc taxonomy_id)', multiline: false },
+        { field: 'who_made', label: 'Ai làm ra (who_made)', multiline: false, codes: WHO_MADE_CODES, defaultCode: DEFAULT_WHO_MADE },
+        { field: 'when_made', label: 'Làm khi nào (when_made)', multiline: false, codes: WHEN_MADE_CODES, defaultCode: DEFAULT_WHEN_MADE },
+        { field: 'price', label: 'Giá (số thập phân, ví dụ 19.99)', multiline: false },
+        { field: 'quantity', label: 'Số lượng (số nguyên ≥ 0)', multiline: false },
       ]
     : [
         { field: 'title', label: 'Tiêu đề', multiline: false },
@@ -182,28 +190,42 @@ function renderManualFields(marketplace: Marketplace): void {
     const label = document.createElement('label');
     label.htmlFor = id;
     label.textContent = spec.label;
+    if (spec.codes && spec.defaultCode) {
+      manualFields.append(label, createCodeField(spec.field, spec.codes, spec.defaultCode));
+      continue;
+    }
     const input = spec.multiline ? document.createElement('textarea') : document.createElement('input');
     input.id = id;
     input.dataset.manualField = spec.field;
+    if (spec.field === 'price') input.inputMode = 'decimal';
+    if (spec.field === 'quantity') input.inputMode = 'numeric';
     manualFields.append(label, input);
   }
 }
 
 function readManualFields(): Record<string, string> {
   const values: Record<string, string> = {};
-  manualFields?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-manual-field]').forEach((input) => {
-    if (input.dataset.manualField) values[input.dataset.manualField] = input.value;
+  manualFields?.querySelectorAll<HTMLElement>('[data-manual-field]').forEach((element) => {
+    const field = element.dataset.manualField;
+    if (!field) return;
+    values[field] = element.dataset.codeField
+      ? readCodeField(element)
+      : (element as HTMLInputElement | HTMLTextAreaElement).value;
   });
   return values;
 }
 
 function setManualFields(listing: MarketplaceListingInput): void {
   const record = listing as unknown as Record<string, unknown>;
-  manualFields?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-manual-field]').forEach((input) => {
-    const field = input.dataset.manualField;
+  manualFields?.querySelectorAll<HTMLElement>('[data-manual-field]').forEach((element) => {
+    const field = element.dataset.manualField;
     if (!field) return;
     const value = record[field];
-    input.value = Array.isArray(value) ? value.join(field === 'tags' ? ', ' : '\n') : typeof value === 'string' ? value : '';
+    const text = Array.isArray(value) ? value.join(field === 'tags' ? ', ' : '\n')
+      : typeof value === 'string' ? value
+        : typeof value === 'number' ? String(value) : '';
+    if (element.dataset.codeField) writeCodeField(element, text);
+    else (element as HTMLInputElement | HTMLTextAreaElement).value = text;
   });
 }
 

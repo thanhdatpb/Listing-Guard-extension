@@ -14,8 +14,9 @@ export const DEFAULT_TSV_COLUMN_MAPPING: TsvColumnMapping = {
   AMAZON: ['title', 'brand', 'bullet_points', 'description', 'search_terms', 'product_type'],
 };
 
+// The default order above is unchanged; the extra Etsy fields can be added to the order in Options.
 const validFields: Record<Marketplace, readonly string[]> = {
-  ETSY: ['title', 'tags', 'description'],
+  ETSY: ['title', 'tags', 'description', 'category', 'who_made', 'when_made', 'price', 'quantity'],
   AMAZON: ['title', 'brand', 'bullet_points', 'description', 'search_terms', 'product_type'],
 };
 
@@ -84,6 +85,22 @@ function optionalText(value: string | undefined): string | undefined {
   return normalized ? normalized : undefined;
 }
 
+/** A decimal number sent as text, for example "19.99"; text that is not a number is refused, never sent. */
+function parsePrice(value: string | undefined): string | undefined {
+  const text = optionalText(value);
+  if (text === undefined) return undefined;
+  if (!/^-?\d+(?:\.\d+)?$/u.test(text)) throw new Error('Giá phải là số thập phân, ví dụ 19.99.');
+  return text;
+}
+
+/** A whole number of zero or more, sent as a JSON number. */
+function parseQuantity(value: string | undefined): number | undefined {
+  const text = optionalText(value);
+  if (text === undefined) return undefined;
+  if (!/^\d+$/u.test(text)) throw new Error('Số lượng phải là số nguyên không âm.');
+  return Number(text);
+}
+
 function splitList(value: string | undefined, separator: RegExp): string[] | undefined {
   const values = value?.split(separator).map((entry) => entry.trim()).filter(Boolean);
   return values?.length ? values : undefined;
@@ -109,10 +126,20 @@ export function normalizeManualListing(
   const description = optionalText(fields.description);
   if (marketplace === 'ETSY') {
     const tags = splitList(fields.tags, /,/u);
+    const category = optionalText(fields.category);
+    const who_made = optionalText(fields.who_made);
+    const when_made = optionalText(fields.when_made);
+    const price = parsePrice(fields.price);
+    const quantity = parseQuantity(fields.quantity);
     return {
       ...(title ? { title } : {}),
       ...(tags ? { tags } : {}),
       ...(description ? { description } : {}),
+      ...(category ? { category } : {}),
+      ...(who_made ? { who_made } : {}),
+      ...(when_made ? { when_made } : {}),
+      ...(price === undefined ? {} : { price }),
+      ...(quantity === undefined ? {} : { quantity }),
     };
   }
 

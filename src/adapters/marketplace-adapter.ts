@@ -23,6 +23,12 @@ export interface EtsyListingInput {
   tags?: string[];
   price?: number | string | PriceInput;
   quantity?: number;
+  /** Sent as written (a name or an Etsy taxonomy_id as text); takes precedence over taxonomy_path. */
+  category?: string;
+  /** Etsy code, for example `i_did`. */
+  who_made?: string;
+  /** Etsy code, for example `made_to_order`. */
+  when_made?: string;
   personalization?: { questions: PersonalizationQuestion[] };
 }
 

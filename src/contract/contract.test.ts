@@ -94,8 +94,9 @@ const expectations: Expectation[] = [
     tsName: 'EtsyListingInput',
     contract: doc('Etsy (`ETSY`)'),
     direction: 'request',
-    // Not read from the Etsy page or entered by hand yet. Note: without who_made and when_made the API reports them missing.
-    unmodelled: ['category', 'taxonomy_path', 'materials', 'images', 'who_made', 'when_made'],
+    // Not read from the Etsy page or entered by hand: the ruleset's required fields (title, description, price, quantity,
+    // who_made, when_made, category) are all modelled.
+    unmodelled: ['taxonomy_path', 'materials', 'images'],
   },
   {
     tsName: 'PersonalizationQuestion',
