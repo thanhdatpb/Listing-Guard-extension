@@ -39,11 +39,23 @@ adapter, or **Nhập tay** to enter Etsy or Amazon fields. To import one Google 
 box, then click **Dán từ Google Sheet**. Configure the field order in Options first; the extension stores only field names
 and their order, never the row contents.
 
+For an Amazon Custom product, the Amazon form also has **Tùy biến Amazon Custom (tùy chọn)**: add print surfaces, then
+text inputs (`max_chars`, allowed character types), dropdowns (one option per line) and image inputs (a label only; no
+image is uploaded). It is sent as the `customization` block of the API input schema, is not part of a TSV row, and is
+not stored.
+
 Example default Amazon TSV row (columns in the default order):
 
 ```text
 Travel Backpack	Acme	Lightweight	A durable day pack	backpack travel	BACKPACK
 ```
+
+## API contract
+
+`docs/contract/` holds a copy of the Listing Guard API's OpenAPI document and input schema (source commit and hashes in
+[docs/contract/README.md](docs/contract/README.md)). `npm test` compares the TypeScript types with it, so a field, enum
+or nullability that drifts fails the build. See [ADR-003](docs/adr/ADR-003-contract-sync-and-amazon-customization.md) for
+how to update the snapshot.
 
 ## Privacy
 

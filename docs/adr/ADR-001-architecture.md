@@ -34,7 +34,7 @@ All dependencies are development-only; the shipped extension bundles local code 
 
 | Dependency | Reason |
 |---|---|
-| `typescript` | Strict static typing for extension code. |
+| `typescript` | Strict static typing for extension code. Its compiler API also reads interface shapes in the API contract test (ADR-003); no separate dependency is needed. |
 | `vite` | Bundles the service worker, content script and options page into `dist/`. |
 | `vitest` | Runs unit tests. |
 | `jsdom` | Supplies a DOM for adapter and UI unit tests. |
