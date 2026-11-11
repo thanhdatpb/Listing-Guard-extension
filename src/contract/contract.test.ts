@@ -166,7 +166,9 @@ describe('API contract snapshot', () => {
 
   it('still carries the known TrademarkCheckResult.findings discrepancy, and its examples hold what the extension reads', () => {
     const schemas = spec.components.schemas as Record<string, { properties: Record<string, { items?: { $ref?: string } }> }>;
-    // When the API repository fixes the $ref this fails: then remove trademarkItemsOverride and this expectation.
+    // TODO: remove trademarkItemsOverride and this assertion once the Listing Guard API repository fixes the $ref of
+    // TrademarkCheckResult.findings (it should point at TrademarkFindingView). This assertion fails when the snapshot
+    // is updated to a commit that has the fix, which is the reminder to do so.
     expect(schemas.TrademarkCheckResult.properties.findings.items?.$ref).toBe('#/components/schemas/FindingView');
 
     const examples = spec.paths['/api/v1/trademark-checks'].post?.responses['200'].content?.['application/json'].examples ?? {};
