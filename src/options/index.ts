@@ -4,6 +4,7 @@ import type {
   ExtensionMessageResponse,
   PublicSettings,
 } from '../shared/api-types';
+import { validateTsvColumnMapping } from '../shared/tsv-mapping';
 
 function getRequiredElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -14,6 +15,10 @@ function getRequiredElement<T extends Element>(selector: string): T {
 }
 
 const form = getRequiredElement<HTMLFormElement>('#settings-form');
+const mappingForm = getRequiredElement<HTMLFormElement>('#tsv-mapping-form');
+const etsyMappingInput = getRequiredElement<HTMLTextAreaElement>('#etsy-column-mapping');
+const amazonMappingInput = getRequiredElement<HTMLTextAreaElement>('#amazon-column-mapping');
+const mappingSaveButton = getRequiredElement<HTMLButtonElement>('#save-mapping-button');
 const baseUrlInput = getRequiredElement<HTMLInputElement>('#base-url');
 const apiKeyInput = getRequiredElement<HTMLInputElement>('#api-key');
 const apiKeyState = getRequiredElement<HTMLParagraphElement>('#api-key-state');
@@ -60,6 +65,9 @@ async function loadSettings(): Promise<void> {
   try {
     const settings = await sendMessage<PublicSettings>({ type: 'GET_SETTINGS' });
     baseUrlInput.value = settings.baseUrl;
+    const mapping = settings.tsvColumnMapping;
+    etsyMappingInput.value = mapping.ETSY.join('\n');
+    amazonMappingInput.value = mapping.AMAZON.join('\n');
     hasSavedApiKey = settings.hasApiKey;
     apiKeyState.textContent = settings.hasApiKey
       ? 'API key đã được lưu cục bộ. Để trống nếu bạn không muốn thay đổi.'
@@ -72,6 +80,11 @@ async function loadSettings(): Promise<void> {
     showStatus('error', 'Không tải được cấu hình', 'Đóng rồi mở lại trang cài đặt extension.');
   }
 }
+
+mappingForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  void saveColumnMapping();
+});
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -114,6 +127,23 @@ async function saveSettings(): Promise<void> {
     showStatus('error', 'Không thể lưu cấu hình', message);
   } finally {
     saveButton.disabled = false;
+  }
+}
+
+async function saveColumnMapping(): Promise<void> {
+  mappingSaveButton.disabled = true;
+  try {
+    const mapping = validateTsvColumnMapping({
+      ETSY: etsyMappingInput.value.split(/\r?\n/u),
+      AMAZON: amazonMappingInput.value.split(/\r?\n/u),
+    });
+    await sendMessage<{ saved: true }>({ type: 'SAVE_TSV_COLUMN_MAPPING', mapping });
+    showStatus('success', 'Đã lưu ánh xạ cột', 'Chỉ tên field và thứ tự cột được lưu trong chrome.storage.local.');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ánh xạ cột không hợp lệ.';
+    showStatus('error', 'Không lưu được ánh xạ cột', message);
+  } finally {
+    mappingSaveButton.disabled = false;
   }
 }
 

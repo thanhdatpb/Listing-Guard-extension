@@ -11,10 +11,29 @@
       <header>
         <p class="eyebrow">LISTING GUARD</p>
         <h1>Kiểm tra listing</h1>
-        <p class="intro">Đọc nội dung trang soạn Etsy hiện tại và gửi tới API bạn đã cấu hình.</p>
+        <p class="intro">Chọn trang soạn hiện tại hoặc nhập listing bằng tay để gửi tới API bạn đã cấu hình.</p>
       </header>
-      <button id="check-button" type="button">Check</button>
-      <p id="status" role="status" aria-live="polite">Chỉ kiểm tra trang soạn listing đang mở.</p>
+      <div class="tabs" role="tablist" aria-label="Chế độ nhập listing">
+        <button id="adapter-tab-button" type="button" role="tab" aria-selected="true" aria-controls="adapter-panel">Trang hiện tại</button>
+        <button id="manual-tab-button" type="button" role="tab" aria-selected="false" aria-controls="manual-panel">Nhập tay</button>
+      </div>
+      <section id="adapter-panel" role="tabpanel" aria-labelledby="adapter-tab-button">
+        <p class="intro">Đọc listing từ trang soạn Etsy đang mở.</p>
+        <button id="check-button" type="button">Check</button>
+      </section>
+      <section id="manual-panel" role="tabpanel" aria-labelledby="manual-tab-button" hidden>
+        <label for="marketplace-select">Sàn</label>
+        <select id="marketplace-select">
+          <option value="ETSY">Etsy</option>
+          <option value="AMAZON">Amazon</option>
+        </select>
+        <div id="manual-fields"></div>
+        <label for="tsv-row">Dòng TSV từ Google Sheets</label>
+        <textarea id="tsv-row" rows="3" placeholder="Sao chép một hàng từ Google Sheets, dán vào đây, rồi chọn Dán từ Google Sheet."></textarea>
+        <button id="parse-tsv-button" class="secondary" type="button">Dán từ Google Sheet</button>
+        <button id="manual-check-button" type="button">Check listing nhập tay</button>
+      </section>
+      <p id="status" role="status" aria-live="polite">Chọn tab để đọc listing từ trang Etsy hoặc nhập nội dung bằng tay.</p>
       <div id="results"></div>
     </main>
     <script type="module" src="./index.ts"></script>

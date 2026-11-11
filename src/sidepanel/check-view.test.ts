@@ -25,13 +25,30 @@ describe('side panel check view', () => {
     const limits: LimitView[] = [
       { field: 'title', kind: 'MAX_LENGTH', value: 12, unit: 'CODE_POINTS', sourceStatus: 'VERIFIED', enabled: true },
       { field: 'tags', kind: 'MAX_COUNT', value: 7, unit: 'ITEMS', sourceStatus: 'SECONDARY', enabled: true },
+      { field: 'tags', kind: 'MAX_LENGTH', value: 5, unit: 'CODE_POINTS', sourceStatus: 'VERIFIED', enabled: true },
       { field: 'description', kind: 'MAX_LENGTH', value: 4, unit: 'WORDS', sourceStatus: 'VERIFIED', enabled: true },
       { field: 'title', kind: 'MAX_LENGTH', value: 3, unit: 'CODE_POINTS', sourceStatus: 'UNVERIFIED', enabled: false },
     ];
     expect(buildLimitCounters({ title: 'Hi 🧵', description: 'one two three', tags: ['a', 'b'] }, limits)).toEqual([
       { field: 'title', current: 4, limit: 12, unit: 'CODE_POINTS', sourceStatus: 'VERIFIED' },
       { field: 'tags', current: 2, limit: 7, unit: 'ITEMS', sourceStatus: 'SECONDARY' },
+      { field: 'tags[0]', current: 1, limit: 5, unit: 'CODE_POINTS', sourceStatus: 'VERIFIED' },
+      { field: 'tags[1]', current: 1, limit: 5, unit: 'CODE_POINTS', sourceStatus: 'VERIFIED' },
       { field: 'description', current: 3, limit: 4, unit: 'WORDS', sourceStatus: 'VERIFIED' },
+    ]);
+  });
+
+  it('counts Amazon fields using the selected API limits', () => {
+    const limits: LimitView[] = [
+      { field: 'title', kind: 'MAX_LENGTH', value: 80, unit: 'CODE_POINTS', sourceStatus: 'VERIFIED', enabled: true },
+      { field: 'bullet_points', kind: 'MAX_COUNT', value: 5, unit: 'ITEMS', sourceStatus: 'SECONDARY', enabled: true },
+      { field: 'bullet_points', kind: 'MAX_LENGTH', value: 20, unit: 'CODE_POINTS', sourceStatus: 'UNVERIFIED', enabled: true },
+    ];
+    expect(buildLimitCounters({ title: 'Bag', bullet_points: ['Lightweight', 'Durable'] }, limits)).toEqual([
+      { field: 'title', current: 3, limit: 80, unit: 'CODE_POINTS', sourceStatus: 'VERIFIED' },
+      { field: 'bullet_points', current: 2, limit: 5, unit: 'ITEMS', sourceStatus: 'SECONDARY' },
+      { field: 'bullet_points[0]', current: 11, limit: 20, unit: 'CODE_POINTS', sourceStatus: 'UNVERIFIED' },
+      { field: 'bullet_points[1]', current: 7, limit: 20, unit: 'CODE_POINTS', sourceStatus: 'UNVERIFIED' },
     ]);
   });
 
@@ -66,5 +83,24 @@ describe('side panel check view', () => {
     expect(button?.dataset.field).toBe('title');
     expect(button?.dataset.expectedValue).toBe('Original title');
     expect(button?.dataset.proposedValue).toBe('Suggested title');
+  });
+
+  it('renders manual findings without field navigation or apply controls', () => {
+    document.body.innerHTML = '<div id="results"></div>';
+    const rules: RulesCheckResult = {
+      checkId: 'rules-id', status: 'COMPLETED', marketplace: 'AMAZON', cached: false,
+      findings: [{
+        ...finding('WARNING', 'title_fix'),
+        fix: { action: 'REPLACE', description: 'Change title', proposedValue: 'Suggested title' },
+      }],
+      readiness: null,
+    };
+    renderCheckResults(document.querySelector('#results')!, rules, null, 'not-configured', {
+      title: 'Original title', brand: 'Acme',
+    }, [], {}, true);
+
+    expect(document.querySelector('button.finding')).toBeNull();
+    expect(document.querySelector('[data-action="apply-suggestion"]')).toBeNull();
+    expect(document.querySelector('[data-action="copy-suggestion"]')?.textContent).toBe('Sao chép giá trị đề xuất');
   });
 });
