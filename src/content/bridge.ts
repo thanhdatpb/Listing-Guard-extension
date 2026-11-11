@@ -2,11 +2,12 @@ import type { ListingField, MarketplaceAdapter } from '../adapters/marketplace-a
 
 export type MarketplaceContentMessage =
   | { type: 'READ_LISTING' }
+  | { type: 'EXPORT_FIXTURE_DOM' }
   | { type: 'LOCATE_FINDING'; field: ListingField; index: number }
   | { type: 'FILL_SUGGESTION'; field: ListingField; index: number; value: string; expectedValue: string };
 
 export type MarketplaceContentResponse =
-  | { ok: true; listing?: ReturnType<MarketplaceAdapter['readListing']>; fieldSnapshots?: Record<string, string>; located?: boolean; filled?: boolean }
+  | { ok: true; listing?: ReturnType<MarketplaceAdapter['readListing']>; fieldSnapshots?: Record<string, string>; located?: boolean; filled?: boolean; html?: string }
   | { ok: false; code: 'ADAPTER_UNAVAILABLE' | 'LISTING_NOT_FOUND' | 'FIELD_CHANGED' | 'FIELD_NOT_FOUND' | 'INVALID_MESSAGE' };
 
 export interface RuntimeMessageSource {
@@ -21,6 +22,7 @@ function isMessage(value: unknown): value is MarketplaceContentMessage {
   if (typeof value !== 'object' || value === null || !('type' in value)) return false;
   const message = value as { type: unknown; field?: unknown; index?: unknown; value?: unknown; expectedValue?: unknown };
   if (message.type === 'READ_LISTING') return true;
+  if (message.type === 'EXPORT_FIXTURE_DOM') return true;
   const validField = ['title', 'description', 'tags', 'price', 'quantity', 'personalization'].includes(String(message.field));
   if (!validField || typeof message.index !== 'number' || !Number.isInteger(message.index) || message.index < 0) return false;
   if (message.type === 'LOCATE_FINDING') return true;
@@ -32,9 +34,19 @@ function isMessage(value: unknown): value is MarketplaceContentMessage {
 export function installMarketplaceBridge(
   adapter: MarketplaceAdapter | null,
   runtime: RuntimeMessageSource,
+  fixtureCapture: { enabled: boolean; documentRef?: Document } = { enabled: false },
 ): void {
   runtime.addListener((message, _sender, sendResponse) => {
     if (!isMessage(message)) {
+      return false;
+    }
+    if (message.type === 'EXPORT_FIXTURE_DOM') {
+      const documentRef = fixtureCapture.documentRef ?? (typeof document === 'undefined' ? undefined : document);
+      if (!fixtureCapture.enabled || !documentRef?.documentElement) {
+        sendResponse({ ok: false, code: 'INVALID_MESSAGE' });
+      } else {
+        sendResponse({ ok: true, html: '<!doctype html>\n' + documentRef.documentElement.outerHTML });
+      }
       return false;
     }
     if (!adapter) {

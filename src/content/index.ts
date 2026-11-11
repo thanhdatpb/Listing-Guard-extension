@@ -5,4 +5,4 @@ installMarketplaceBridge(null, {
   addListener: (listener) => chrome.runtime.onMessage.addListener(
     listener as Parameters<typeof chrome.runtime.onMessage.addListener>[0],
   ),
-});
+}, { enabled: __DEV_FIXTURE_CAPTURE__, documentRef: document });
