@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Listing Guard",
   "version": "0.1.0",
-  "description": "Kiểm tra listing Etsy trước khi đăng bằng Listing Guard API.",
+  "description": "Kiểm tra listing Etsy (trang soạn listing, nhập tay) và Amazon (nhập tay) trước khi đăng bằng Listing Guard API.",
   "action": { "default_title": "Mở Listing Guard" },
   "permissions": ["storage", "sidePanel"],
   "host_permissions": ["https://www.etsy.com/your/shops/me/tools/listings/*"],

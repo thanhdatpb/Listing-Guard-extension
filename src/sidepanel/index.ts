@@ -12,6 +12,9 @@ import { findingTarget, renderCheckResults } from './check-view';
 import type { MarketplaceListingInput, EtsyListingInput } from '../adapters/marketplace-adapter';
 import { DEFAULT_TSV_COLUMN_MAPPING, mapTsvRow, normalizeManualListing, parseTsvRow, type Marketplace } from '../shared/tsv-mapping';
 import { sanitizeFixtureHtml } from '../dev/fixture-sanitizer';
+import { createCustomizationForm } from './customization-form';
+import { createCodeField, readCodeField, writeCodeField } from './etsy-fields';
+import { DEFAULT_WHEN_MADE, DEFAULT_WHO_MADE, WHEN_MADE_CODES, WHO_MADE_CODES } from '../shared/etsy-codes';
 
 interface CheckBundle {
   rules: RulesCheckResult;
@@ -33,6 +36,9 @@ const manualCheckButton = document.querySelector<HTMLButtonElement>('#manual-che
 const manualMarketplace = document.querySelector<HTMLSelectElement>('#marketplace-select');
 const manualFields = document.querySelector<HTMLElement>('#manual-fields');
 const tsvRowInput = document.querySelector<HTMLTextAreaElement>('#tsv-row');
+const customizationSection = document.querySelector<HTMLElement>('#customization-section');
+const customizationRoot = document.querySelector<HTMLElement>('#customization-form');
+const customizationForm = customizationRoot ? createCustomizationForm(customizationRoot) : undefined;
 const parseTsvButton = document.querySelector<HTMLButtonElement>('#parse-tsv-button');
 let currentTabId: number | undefined;
 let activeMode: 'adapter' | 'manual' = 'adapter';
@@ -158,11 +164,17 @@ async function handleResultClick(event: Event, tabId: number | undefined, manual
 checkButton?.addEventListener('click', () => { void checkListing(); });
 function renderManualFields(marketplace: Marketplace): void {
   if (!manualFields) return;
-  const fieldSpecs = marketplace === 'ETSY'
+  type FieldSpec = { field: string; label: string; multiline: boolean; codes?: readonly string[]; defaultCode?: string };
+  const fieldSpecs: FieldSpec[] = marketplace === 'ETSY'
     ? [
         { field: 'title', label: 'Tiêu đề', multiline: false },
         { field: 'tags', label: 'Tags (phân tách bằng dấu phẩy)', multiline: true },
         { field: 'description', label: 'Mô tả', multiline: true },
+        { field: 'category', label: 'Danh mục (tên hoặc taxonomy_id)', multiline: false },
+        { field: 'who_made', label: 'Ai làm ra (who_made)', multiline: false, codes: WHO_MADE_CODES, defaultCode: DEFAULT_WHO_MADE },
+        { field: 'when_made', label: 'Làm khi nào (when_made)', multiline: false, codes: WHEN_MADE_CODES, defaultCode: DEFAULT_WHEN_MADE },
+        { field: 'price', label: 'Giá (số thập phân, ví dụ 19.99)', multiline: false },
+        { field: 'quantity', label: 'Số lượng (số nguyên ≥ 0)', multiline: false },
       ]
     : [
         { field: 'title', label: 'Tiêu đề', multiline: false },
@@ -178,28 +190,43 @@ function renderManualFields(marketplace: Marketplace): void {
     const label = document.createElement('label');
     label.htmlFor = id;
     label.textContent = spec.label;
+    if (spec.codes && spec.defaultCode) {
+      manualFields.append(label, createCodeField(spec.field, spec.codes, spec.defaultCode));
+      continue;
+    }
     const input = spec.multiline ? document.createElement('textarea') : document.createElement('input');
     input.id = id;
     input.dataset.manualField = spec.field;
+    if (spec.field === 'price') input.inputMode = 'decimal';
+    if (spec.field === 'quantity') input.inputMode = 'numeric';
     manualFields.append(label, input);
   }
 }
 
 function readManualFields(): Record<string, string> {
   const values: Record<string, string> = {};
-  manualFields?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-manual-field]').forEach((input) => {
-    if (input.dataset.manualField) values[input.dataset.manualField] = input.value;
+  manualFields?.querySelectorAll<HTMLElement>('[data-manual-field]').forEach((element) => {
+    const field = element.dataset.manualField;
+    if (!field) return;
+    values[field] = element.dataset.codeField
+      ? readCodeField(element)
+      : (element as HTMLInputElement | HTMLTextAreaElement).value;
   });
   return values;
 }
 
-function setManualFields(listing: MarketplaceListingInput): void {
+/** `importedFields` are the fields that had a TSV column, so only they can get the default-code reminder. */
+function setManualFields(listing: MarketplaceListingInput, importedFields: readonly string[] = []): void {
   const record = listing as unknown as Record<string, unknown>;
-  manualFields?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-manual-field]').forEach((input) => {
-    const field = input.dataset.manualField;
+  manualFields?.querySelectorAll<HTMLElement>('[data-manual-field]').forEach((element) => {
+    const field = element.dataset.manualField;
     if (!field) return;
     const value = record[field];
-    input.value = Array.isArray(value) ? value.join(field === 'tags' ? ', ' : '\n') : typeof value === 'string' ? value : '';
+    const text = Array.isArray(value) ? value.join(field === 'tags' ? ', ' : '\n')
+      : typeof value === 'string' ? value
+        : typeof value === 'number' ? String(value) : '';
+    if (element.dataset.codeField) writeCodeField(element, text, importedFields.includes(field));
+    else (element as HTMLInputElement | HTMLTextAreaElement).value = text;
   });
 }
 
@@ -217,7 +244,8 @@ async function checkManualListing(): Promise<void> {
   manualCheckButton.disabled = true;
   try {
     const marketplace = manualMarketplace.value as Marketplace;
-    const listing = normalizeManualListing(marketplace, readManualFields());
+    const customization = marketplace === 'AMAZON' ? customizationForm?.read() : undefined;
+    const listing = normalizeManualListing(marketplace, readManualFields(), customization);
     currentTabId = undefined;
     activeMode = 'manual';
     await submitCheck(marketplace, listing, true);
@@ -233,16 +261,25 @@ async function parsePastedTsv(): Promise<void> {
   try {
     const row = parseTsvRow(tsvRowInput.value);
     const settings = await sendMessage<{ tsvColumnMapping: typeof DEFAULT_TSV_COLUMN_MAPPING }>({ type: 'GET_SETTINGS' });
-    const listing = mapTsvRow(row, manualMarketplace.value as Marketplace, settings.tsvColumnMapping ?? DEFAULT_TSV_COLUMN_MAPPING);
-    setManualFields(listing);
+    const marketplace = manualMarketplace.value as Marketplace;
+    const mapping = settings.tsvColumnMapping ?? DEFAULT_TSV_COLUMN_MAPPING;
+    const listing = mapTsvRow(row, marketplace, mapping);
+    setManualFields(listing, mapping[marketplace]);
     status.textContent = 'Đã điền các trường từ hàng TSV. Kiểm tra nội dung rồi bấm Check listing nhập tay.';
   } catch (error) {
     status.textContent = error instanceof Error ? error.message : 'Không thể đọc hàng TSV.';
   }
 }
 
-renderManualFields('ETSY');
-manualMarketplace?.addEventListener('change', () => renderManualFields(manualMarketplace.value as Marketplace));
+function showMarketplaceFields(marketplace: Marketplace): void {
+  renderManualFields(marketplace);
+  // Like the other manual fields, customization is cleared when the marketplace changes, and only Amazon has it.
+  customizationForm?.reset();
+  if (customizationSection) customizationSection.hidden = marketplace !== 'AMAZON';
+}
+
+showMarketplaceFields('ETSY');
+manualMarketplace?.addEventListener('change', () => showMarketplaceFields(manualMarketplace.value as Marketplace));
 adapterTabButton?.addEventListener('click', () => setActiveTab('adapter'));
 manualTabButton?.addEventListener('click', () => setActiveTab('manual'));
 manualCheckButton?.addEventListener('click', () => { void checkManualListing(); });

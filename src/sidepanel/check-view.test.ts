@@ -85,6 +85,24 @@ describe('side panel check view', () => {
     expect(button?.dataset.proposedValue).toBe('Suggested title');
   });
 
+  it('offers no copy or apply control for a REMOVE fix, whose proposedValue is null in the contract', () => {
+    document.body.innerHTML = '<div id="results"></div>';
+    const rules: RulesCheckResult = {
+      checkId: 'rules-id', status: 'COMPLETED', marketplace: 'ETSY', cached: false,
+      findings: [{
+        ...finding('WARNING', 'title_repeated_words'),
+        fix: { action: 'REMOVE', description: 'Remove the repeated word', proposedValue: null },
+      }],
+      readiness: null,
+    };
+    for (const manualMode of [false, true]) {
+      renderCheckResults(document.querySelector('#results')!, rules, null, 'not-configured', { title: 'Mug mug' }, [], {}, manualMode);
+      expect(document.querySelector('[data-action="apply-suggestion"]')).toBeNull();
+      expect(document.querySelector('[data-action="copy-suggestion"]')).toBeNull();
+      expect(document.querySelector('.finding-row')?.textContent).toContain('title_repeated_words');
+    }
+  });
+
   it('renders manual findings without field navigation or apply controls', () => {
     document.body.innerHTML = '<div id="results"></div>';
     const rules: RulesCheckResult = {

@@ -23,7 +23,40 @@ export interface EtsyListingInput {
   tags?: string[];
   price?: number | string | PriceInput;
   quantity?: number;
+  /** Sent as written (a name or an Etsy taxonomy_id as text); takes precedence over taxonomy_path. */
+  category?: string;
+  /** Etsy code, for example `i_did`. */
+  who_made?: string;
+  /** Etsy code, for example `made_to_order`. */
+  when_made?: string;
   personalization?: { questions: PersonalizationQuestion[] };
+}
+
+export interface AmazonCustomizationTextInput {
+  label?: string;
+  max_chars?: number;
+  allowed_char_types?: string[];
+}
+
+export interface AmazonCustomizationDropdown {
+  label?: string;
+  options?: string[];
+}
+
+/** Parameters of an image upload place only; the extension never uploads or reads an image. */
+export interface AmazonCustomizationImageInput {
+  label?: string;
+}
+
+export interface AmazonCustomizationSurface {
+  name?: string;
+  text_inputs?: AmazonCustomizationTextInput[];
+  dropdowns?: AmazonCustomizationDropdown[];
+  image_inputs?: AmazonCustomizationImageInput[];
+}
+
+export interface AmazonCustomization {
+  surfaces: AmazonCustomizationSurface[];
 }
 
 export interface AmazonListingInput {
@@ -33,6 +66,7 @@ export interface AmazonListingInput {
   description?: string;
   search_terms?: string;
   product_type?: string;
+  customization?: AmazonCustomization;
 }
 
 export type MarketplaceListingInput = EtsyListingInput | AmazonListingInput;
