@@ -4,11 +4,15 @@ export const API_REQUEST_TIMEOUT_MS = 10_000;
 
 export class ApiClientError extends Error {
   readonly requestId?: string;
+  readonly code?: string;
+  readonly status?: number;
 
-  constructor(message: string, requestId?: string) {
+  constructor(message: string, requestId?: string, code?: string, status?: number) {
     super(message);
     this.name = 'ApiClientError';
     this.requestId = requestId;
+    this.code = code;
+    this.status = status;
   }
 }
 
@@ -23,6 +27,7 @@ const problemMessages: Record<string, string> = {
   'quota-exceeded': 'Hạn mức tháng đã dùng hết. Không tự thử lại.',
   'plan-not-allowed': 'Gói hiện tại không cho phép sử dụng chức năng này.',
   'service-unavailable': 'API tạm thời không khả dụng.',
+  'trademark-not-configured': 'Dịch vụ kiểm tra nhãn hiệu chưa cấu hình.',
   'internal-error': 'API gặp lỗi nội bộ.',
   'not-found': 'Không tìm thấy endpoint API. Kiểm tra base URL.',
 };
@@ -50,14 +55,20 @@ async function requestJson<T>(
   fetchImpl: typeof fetch,
   url: string,
   headers: HeadersInit,
+  method: 'GET' | 'POST' = 'GET',
+  body?: unknown,
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
 
   try {
     const response = await fetchImpl(url, {
-      method: 'GET',
-      headers,
+      method,
+      headers: {
+        ...Object.fromEntries(new Headers(headers).entries()),
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: controller.signal,
     });
 
@@ -72,7 +83,7 @@ async function requestJson<T>(
       const code = typeof problem.code === 'string' ? problem.code : 'unknown';
       const requestId = safeRequestId(problem.requestId);
       const message = problemMessages[code] ?? 'Không thể kết nối với Listing Guard API.';
-      throw new ApiClientError(message, requestId);
+      throw new ApiClientError(message, requestId, code, response.status);
     }
 
     return (await response.json()) as T;
@@ -91,6 +102,18 @@ async function requestJson<T>(
 
 export class ListingGuardApiClient {
   constructor(private readonly fetchImpl: typeof fetch = fetch) {}
+
+  private headers(settings: ApiSettings): Record<string, string> {
+    return {
+      'X-API-Key': settings.apiKey,
+      ...(settings.cloudflareAccessClientId && settings.cloudflareAccessClientSecret
+        ? {
+            'CF-Access-Client-Id': settings.cloudflareAccessClientId,
+            'CF-Access-Client-Secret': settings.cloudflareAccessClientSecret,
+          }
+        : {}),
+    };
+  }
 
   async checkConnection(settings: ApiSettings): Promise<ConnectionResult> {
     const baseUrl = safeBaseUrl(settings.baseUrl);
@@ -112,12 +135,42 @@ export class ListingGuardApiClient {
     const usage = await requestJson<UsageResponse>(
       this.fetchImpl,
       `${baseUrl}/api/v1/usage`,
-      {
-        ...accessHeaders,
-        'X-API-Key': settings.apiKey,
-      },
+      { ...accessHeaders, 'X-API-Key': settings.apiKey },
     );
-
     return { health: { status: 'UP' }, usage };
+  }
+
+  async checkRules(
+    settings: ApiSettings,
+    request: import('../shared/api-types').ListingCheckRequest,
+  ): Promise<import('../shared/api-types').RulesCheckResult> {
+    return requestJson(
+      this.fetchImpl,
+      `${safeBaseUrl(settings.baseUrl)}/api/v1/checks`,
+      this.headers(settings),
+      'POST',
+      request,
+    );
+  }
+
+  async checkTrademark(
+    settings: ApiSettings,
+    request: import('../shared/api-types').ListingCheckRequest,
+  ): Promise<import('../shared/api-types').TrademarkCheckResult> {
+    return requestJson(
+      this.fetchImpl,
+      `${safeBaseUrl(settings.baseUrl)}/api/v1/trademark-checks`,
+      this.headers(settings),
+      'POST',
+      request,
+    );
+  }
+
+  async getEtsyLimits(settings: ApiSettings): Promise<import('../shared/api-types').RulesetLimitsResult> {
+    return requestJson(
+      this.fetchImpl,
+      `${safeBaseUrl(settings.baseUrl)}/api/v1/rulesets/ETSY/limits`,
+      this.headers(settings),
+    );
   }
 }
