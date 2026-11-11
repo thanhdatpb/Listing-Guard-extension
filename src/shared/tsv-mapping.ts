@@ -1,4 +1,9 @@
-import type { AmazonListingInput, EtsyListingInput, MarketplaceListingInput } from '../adapters/marketplace-adapter';
+import type {
+  AmazonCustomization,
+  AmazonListingInput,
+  EtsyListingInput,
+  MarketplaceListingInput,
+} from '../adapters/marketplace-adapter';
 
 export type Marketplace = 'ETSY' | 'AMAZON';
 
@@ -85,9 +90,21 @@ function splitList(value: string | undefined, separator: RegExp): string[] | und
 }
 
 export function normalizeManualListing(marketplace: 'ETSY', fields: Record<string, string>): EtsyListingInput;
-export function normalizeManualListing(marketplace: 'AMAZON', fields: Record<string, string>): AmazonListingInput;
-export function normalizeManualListing(marketplace: Marketplace, fields: Record<string, string>): MarketplaceListingInput;
-export function normalizeManualListing(marketplace: Marketplace, fields: Record<string, string>): MarketplaceListingInput {
+export function normalizeManualListing(
+  marketplace: 'AMAZON',
+  fields: Record<string, string>,
+  customization?: AmazonCustomization,
+): AmazonListingInput;
+export function normalizeManualListing(
+  marketplace: Marketplace,
+  fields: Record<string, string>,
+  customization?: AmazonCustomization,
+): MarketplaceListingInput;
+export function normalizeManualListing(
+  marketplace: Marketplace,
+  fields: Record<string, string>,
+  customization?: AmazonCustomization,
+): MarketplaceListingInput {
   const title = optionalText(fields.title);
   const description = optionalText(fields.description);
   if (marketplace === 'ETSY') {
@@ -110,6 +127,8 @@ export function normalizeManualListing(marketplace: Marketplace, fields: Record<
     ...(description ? { description } : {}),
     ...(search_terms ? { search_terms } : {}),
     ...(product_type ? { product_type } : {}),
+    // Amazon only. The block cannot come from a TSV row (a cell cannot hold it), so it is never part of the mapping.
+    ...(customization ? { customization } : {}),
   };
 }
 

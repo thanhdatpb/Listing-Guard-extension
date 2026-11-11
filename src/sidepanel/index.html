@@ -28,6 +28,11 @@
           <option value="AMAZON">Amazon</option>
         </select>
         <div id="manual-fields"></div>
+        <div id="customization-section" hidden>
+          <h2>Tùy biến Amazon Custom (tùy chọn)</h2>
+          <p class="intro">Khai báo các bề mặt in và ô khách điền. Bỏ trống nếu sản phẩm không có tùy biến; nội dung này không nằm trong hàng TSV.</p>
+          <div id="customization-form"></div>
+        </div>
         <label for="tsv-row">Dòng TSV từ Google Sheets</label>
         <textarea id="tsv-row" rows="3" placeholder="Sao chép một hàng từ Google Sheets, dán vào đây, rồi chọn Dán từ Google Sheet."></textarea>
         <button id="parse-tsv-button" class="secondary" type="button">Dán từ Google Sheet</button>

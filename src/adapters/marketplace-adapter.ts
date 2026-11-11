@@ -26,6 +26,33 @@ export interface EtsyListingInput {
   personalization?: { questions: PersonalizationQuestion[] };
 }
 
+export interface AmazonCustomizationTextInput {
+  label?: string;
+  max_chars?: number;
+  allowed_char_types?: string[];
+}
+
+export interface AmazonCustomizationDropdown {
+  label?: string;
+  options?: string[];
+}
+
+/** Parameters of an image upload place only; the extension never uploads or reads an image. */
+export interface AmazonCustomizationImageInput {
+  label?: string;
+}
+
+export interface AmazonCustomizationSurface {
+  name?: string;
+  text_inputs?: AmazonCustomizationTextInput[];
+  dropdowns?: AmazonCustomizationDropdown[];
+  image_inputs?: AmazonCustomizationImageInput[];
+}
+
+export interface AmazonCustomization {
+  surfaces: AmazonCustomizationSurface[];
+}
+
 export interface AmazonListingInput {
   title?: string;
   brand?: string;
@@ -33,6 +60,7 @@ export interface AmazonListingInput {
   description?: string;
   search_terms?: string;
   product_type?: string;
+  customization?: AmazonCustomization;
 }
 
 export type MarketplaceListingInput = EtsyListingInput | AmazonListingInput;

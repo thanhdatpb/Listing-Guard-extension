@@ -12,6 +12,7 @@ import { findingTarget, renderCheckResults } from './check-view';
 import type { MarketplaceListingInput, EtsyListingInput } from '../adapters/marketplace-adapter';
 import { DEFAULT_TSV_COLUMN_MAPPING, mapTsvRow, normalizeManualListing, parseTsvRow, type Marketplace } from '../shared/tsv-mapping';
 import { sanitizeFixtureHtml } from '../dev/fixture-sanitizer';
+import { createCustomizationForm } from './customization-form';
 
 interface CheckBundle {
   rules: RulesCheckResult;
@@ -33,6 +34,9 @@ const manualCheckButton = document.querySelector<HTMLButtonElement>('#manual-che
 const manualMarketplace = document.querySelector<HTMLSelectElement>('#marketplace-select');
 const manualFields = document.querySelector<HTMLElement>('#manual-fields');
 const tsvRowInput = document.querySelector<HTMLTextAreaElement>('#tsv-row');
+const customizationSection = document.querySelector<HTMLElement>('#customization-section');
+const customizationRoot = document.querySelector<HTMLElement>('#customization-form');
+const customizationForm = customizationRoot ? createCustomizationForm(customizationRoot) : undefined;
 const parseTsvButton = document.querySelector<HTMLButtonElement>('#parse-tsv-button');
 let currentTabId: number | undefined;
 let activeMode: 'adapter' | 'manual' = 'adapter';
@@ -217,7 +221,8 @@ async function checkManualListing(): Promise<void> {
   manualCheckButton.disabled = true;
   try {
     const marketplace = manualMarketplace.value as Marketplace;
-    const listing = normalizeManualListing(marketplace, readManualFields());
+    const customization = marketplace === 'AMAZON' ? customizationForm?.read() : undefined;
+    const listing = normalizeManualListing(marketplace, readManualFields(), customization);
     currentTabId = undefined;
     activeMode = 'manual';
     await submitCheck(marketplace, listing, true);
@@ -241,8 +246,15 @@ async function parsePastedTsv(): Promise<void> {
   }
 }
 
-renderManualFields('ETSY');
-manualMarketplace?.addEventListener('change', () => renderManualFields(manualMarketplace.value as Marketplace));
+function showMarketplaceFields(marketplace: Marketplace): void {
+  renderManualFields(marketplace);
+  // Like the other manual fields, customization is cleared when the marketplace changes, and only Amazon has it.
+  customizationForm?.reset();
+  if (customizationSection) customizationSection.hidden = marketplace !== 'AMAZON';
+}
+
+showMarketplaceFields('ETSY');
+manualMarketplace?.addEventListener('change', () => showMarketplaceFields(manualMarketplace.value as Marketplace));
 adapterTabButton?.addEventListener('click', () => setActiveTab('adapter'));
 manualTabButton?.addEventListener('click', () => setActiveTab('manual'));
 manualCheckButton?.addEventListener('click', () => { void checkManualListing(); });
