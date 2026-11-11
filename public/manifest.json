@@ -5,6 +5,7 @@
   "description": "Kiểm tra listing Etsy trước khi đăng bằng Listing Guard API.",
   "permissions": ["storage"],
   "host_permissions": ["https://www.etsy.com/your/shops/me/tools/listings/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
   "background": {
     "service_worker": "src/background.js",
     "type": "module"

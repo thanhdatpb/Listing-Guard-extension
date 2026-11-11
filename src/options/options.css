@@ -1,0 +1,58 @@
+:root {
+  color: #17212b;
+  background: #f4f6f8;
+  font-family: Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 320px; }
+
+.settings-page {
+  width: min(100% - 32px, 680px);
+  margin: 40px auto;
+  padding: 32px;
+  border: 1px solid #d5dce3;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(23 33 43 / 6%);
+}
+
+.page-header { margin-bottom: 28px; }
+.eyebrow { margin: 0 0 8px; color: #536b7e; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+h1 { margin: 0; font-size: 28px; }
+.intro { margin: 10px 0 0; color: #536270; }
+
+form { display: grid; gap: 10px; }
+label, legend { font-size: 14px; font-weight: 700; }
+input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #bdc8d2;
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+}
+input:focus { outline: 3px solid rgb(20 105 160 / 20%); border-color: #1469a0; }
+.hint { margin: -4px 0 8px; color: #63717e; font-size: 12px; line-height: 1.5; }
+fieldset { display: grid; gap: 10px; margin: 12px 0 4px; padding: 16px; border: 1px solid #d5dce3; border-radius: 8px; }
+legend { padding: 0 6px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+button { min-height: 42px; padding: 0 16px; border: 1px solid #075a91; border-radius: 6px; background: #075a91; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+button.secondary { background: white; color: #075a91; }
+button:disabled { cursor: wait; opacity: .6; }
+.status { margin-top: 24px; padding: 16px; border: 1px solid #b9c7d3; border-radius: 8px; background: #f5f8fa; }
+.status[data-kind="success"] { border-color: #83b89a; background: #f0faf3; }
+.status[data-kind="error"] { border-color: #d8a0a0; background: #fff6f5; }
+.status h2 { margin: 0 0 6px; font-size: 16px; }
+.status p { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+.privacy-note { margin: 22px 0 0; color: #63717e; font-size: 12px; line-height: 1.5; }
+
+@media (max-width: 480px) {
+  .settings-page { margin: 16px auto; padding: 22px; }
+  .actions { flex-direction: column; }
+  button { width: 100%; }
+}
